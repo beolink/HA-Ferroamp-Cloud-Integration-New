@@ -23,4 +23,5 @@ async def async_get_config_entry_diagnostics(
         "options": dict(entry.options),
         "live": dataclasses.asdict(data.live) if data else None,
         "slow": dataclasses.asdict(data.slow) if data and data.slow else None,
+        "control": entry.runtime_data.control.as_dict(),
     }

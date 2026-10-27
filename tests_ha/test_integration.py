@@ -86,6 +86,8 @@ class FakeCloud:
             return copy.deepcopy(FakeCloud.live_answer)
         if document is protocol.SLOW:
             return copy.deepcopy(SLOW)
+        if document is protocol.SCHEDULES:
+            return {"facility": {"configuration": {"configurationSchedule": {"schedules": []}}}}
         raise AssertionError("unexpected document")
 
 

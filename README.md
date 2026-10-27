@@ -11,7 +11,7 @@ an ExtAPI for OS 7 is planned for Q1 2027). The web portal does not manage
 these systems either; only the Ferroamp app does. This driver talks to the
 same cloud API as the app.
 
-## Status: 0.1, reads only
+## Status: 0.2, control written, not yet run on a live facility
 
 - Telemetry under the names [EMS Steward](https://github.com/beolink/ha-ems)
   reads, so EMS finds them on its own: `sensor.ferroamp_soc`,
@@ -24,11 +24,56 @@ same cloud API as the app.
   whether FerroAI is on, whether the system is online and when it was last
   heard from.
 
-**Control is not in this release.** On OS 7 and later the app does not
-command the battery directly; it lays out *configuration schedules* that the
-system follows. Control through such schedules (the EMS inverter contract's
-`number.ferroamp_battery_power_setpoint`) comes once a schedule has been
-seen steering a live battery, and how quickly it does so.
+### Control
+
+On OS 7 and later the app does not command the battery directly; it lays out
+*configuration schedules* that the system follows. The driver takes the EMS
+inverter contract's setpoint and writes it that way, so EMS Steward needs no
+change to use it:
+
+| Entity | Purpose |
+|--------|---------|
+| `switch.ferroamp_control_enabled` | The gate, **off** after install. Off, nothing is written. Turning it off hands the system back at once. |
+| `number.ferroamp_battery_power_setpoint` | W, signed: positive charges, negative discharges, 0 hands the system back to the owner's configuration. EMS writes it every tick. |
+| `binary_sensor.ferroamp_following` | On when the cloud took the latest write, off when it refused it. `last_nak` says why. |
+| `sensor.ferroamp_last_command` | `idle`, `pending`, `ack` or `nak`, with the command and the reason as attributes. |
+
+A command is a one-off *manual* schedule that starts at the next whole minute
+and runs ten minutes, followed by a *return* schedule that starts when that
+window ends and gives the owner's configuration back. A command stands only
+while it is renewed, every five minutes, by EMS or by the driver's own timer.
+If Home Assistant stops, or the renewals stop, the return starts and the system
+goes back to what the owner set. The driver removes only schedules whose name
+starts with `EMS control:`, and never the one in force.
+
+Writes are refused, and the reason is shown, while FerroAI is on (the cloud
+refuses owner schedules then), on a system without configuration schedules, and
+until the owner's configuration has been seen once. After a restart no command
+is sent until EMS writes again, and a command still standing from before the
+restart ends on its own: its return starts when the window does.
+
+Known side effects:
+
+- While a command stands, the owner's recurring schedules wait behind it. The
+  cloud moves them (PROTOCOL.md, the schedule test), so they resume at their
+  next start after control ends.
+- If EMS stops writing while the switch is on, the driver keeps renewing the
+  last command. Turn the switch off to hand back.
+- Discharge has not been seen on a live system yet (PROTOCOL.md, still open).
+
+### Verify on your system first
+
+The write path is tested against a simulated cloud. It has not run on a live
+facility yet. On a system where a short charge or discharge is harmless, check
+in this order:
+
+1. Switch control on and set the setpoint to 100 W (EMS's hold).
+   `sensor.ferroamp_last_command` should read `ack`, the app should list
+   `EMS control: charge 100 W` and `EMS control: return to normal`, and the
+   battery should stay near 0 W.
+2. Set -500 W and check that the battery discharges.
+3. Turn the switch off. The return should give the owner's configuration back,
+   and no `EMS control:` schedule should remain in force.
 
 ### Signs and units
 
@@ -80,6 +125,9 @@ line. Neither writes anything.
 pytest                                   # protocol and client, no Home Assistant needed
 pytest -c tests_ha/pytest.ini tests_ha   # with pytest-homeassistant-custom-component installed
 ```
+
+`tests/_cloud_sim.py` stands in for the cloud and keeps configuration schedules
+the way PROTOCOL.md describes them; the control tests run against it.
 
 ## Disclaimer
 

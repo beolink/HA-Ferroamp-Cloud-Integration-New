@@ -19,7 +19,7 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: FerroampCloudConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     coordinator = entry.runtime_data
-    async_add_entities([OnlineSensor(coordinator), FerroAiSensor(coordinator)])
+    async_add_entities([OnlineSensor(coordinator), FerroAiSensor(coordinator), FollowingSensor(coordinator)])
 
 
 class OnlineSensor(FerroampCloudEntity, BinarySensorEntity):
@@ -54,3 +54,21 @@ class FerroAiSensor(FerroampCloudEntity, BinarySensorEntity):
     @property
     def is_on(self) -> bool | None:
         return self.coordinator.data.live.ferroai_enabled
+
+
+class FollowingSensor(FerroampCloudEntity, BinarySensorEntity):
+    """EMS's verdict on the command: on while the cloud took the latest write,
+    off when it refused it, unknown until the first write. EMS raises a
+    Repairs issue after NAKs, so a refusal is never silent."""
+
+    def __init__(self, coordinator: FerroampCloudCoordinator) -> None:
+        super().__init__(coordinator, "binary_sensor", "following")
+
+    @property
+    def is_on(self) -> bool | None:
+        return {"ack": True, "nak": False}.get(self.coordinator.control.result)
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        control = self.coordinator.control
+        return {"last_nak": control.reason if control.result == "nak" else None}

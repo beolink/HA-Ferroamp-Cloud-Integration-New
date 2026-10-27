@@ -7,8 +7,9 @@ The driver talks to the same cloud API as the Ferroamp user app
 entity names as ha-ferroamp-control and the Ferroamp MQTT integration
 (``sensor.{prefix}_soc``, ``_battery_power``, ``_grid_power`` and so on).
 
-This release reads only. Control (the EMS inverter contract's setpoint)
-follows once a cloud schedule has been seen steering a live battery.
+It also takes the EMS inverter contract's setpoint (``number.{prefix}_battery_power_setpoint``)
+and writes it as configuration schedules (control.py). Control is off until the owner
+switches ``switch.{prefix}_control_enabled`` on.
 """
 
 from __future__ import annotations
@@ -22,7 +23,12 @@ from .api import FerroampCloud
 from .const import CONF_REFRESH_TOKEN
 from .coordinator import FerroampCloudCoordinator
 
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
+PLATFORMS: list[Platform] = [
+    Platform.SENSOR,
+    Platform.BINARY_SENSOR,
+    Platform.SWITCH,
+    Platform.NUMBER,
+]
 
 type FerroampCloudConfigEntry = ConfigEntry[FerroampCloudCoordinator]
 

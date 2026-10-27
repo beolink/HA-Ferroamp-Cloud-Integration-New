@@ -64,11 +64,19 @@
       "system_mode": { "name": "System mode" },
       "active_schedule": { "name": "Active schedule" },
       "ferroai_action": { "name": "FerroAI action" },
-      "last_seen": { "name": "Last seen" }
+      "last_seen": { "name": "Last seen" },
+      "last_command": { "name": "Last command" }
     },
     "binary_sensor": {
       "online": { "name": "Online" },
-      "ferroai": { "name": "FerroAI" }
+      "ferroai": { "name": "FerroAI" },
+      "following": { "name": "Following" }
+    },
+    "switch": {
+      "control_enabled": { "name": "Control enabled" }
+    },
+    "number": {
+      "battery_power_setpoint": { "name": "Battery power setpoint" }
     }
   }
 }

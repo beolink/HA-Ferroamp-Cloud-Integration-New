@@ -169,6 +169,31 @@ query Slow($id: Int!, $period: SchedulePeriod!, $range: DatetimeRangeQuery!) {
   }
 }""" % _EMS_V1
 
+# The schedules alone, for the control: what the driver made and what the
+# owner has, to remove its own and to read the owner's configuration.
+SCHEDULES = """
+query Schedules($id: Int!, $period: SchedulePeriod!) { facility(where: {id: {equals: $id}}) {
+  configuration { configurationSchedule {
+    schedules(period: $period) {
+      id summary scheduleType origin isActive appliedAt
+      event { iCalendarEventJson { start end rruleStr } }
+      configuration { %s }
+    }
+  } }
+} }""" % _EMS_V1
+
+
+def schedule_variables(facility_id: int, now: dt.datetime) -> dict[str, Any]:
+    """Variables for SCHEDULES: a day either side of now, which covers every
+    schedule the driver makes (each lies a few minutes ahead)."""
+    return {
+        "id": facility_id,
+        "period": {
+            "start": iso(now - dt.timedelta(days=1)),
+            "end": iso(now + dt.timedelta(days=1)),
+        },
+    }
+
 
 def slow_variables(facility_id: int, now: dt.datetime) -> dict[str, Any]:
     """Variables for SLOW: schedules from yesterday to the day after
@@ -328,6 +353,7 @@ class Live:
     config_state: str | None = None
     ferroai_enabled: bool | None = None
     ferroai_action: dict | None = None
+    config_raw: dict | None = None   # the configuration in force, as the cloud answered it
 
     def age_s(self, now: dt.datetime) -> float | None:
         if self.measured_at is None:
@@ -357,6 +383,7 @@ def parse_live(data: dict) -> Live:
         last_seen=parse_time(connectivity.get("lastSeenAt")),
         upgrading=(facility.get("maintenance") or {}).get("ongoingSystemUpgrade"),
         config=EmsConfig.from_api(current.get("config")),
+        config_raw=current.get("config") or None,
         config_generation=current.get("generation"),
         config_state=current.get("state"),
         ferroai_enabled=optimization.get("enabled"),
@@ -376,6 +403,7 @@ class Schedule:
     rrule: str | None
     applied_at: dt.datetime | None
     config: EmsConfig | None
+    config_raw: dict | None = None   # the configuration as the cloud answered it
 
     def as_attributes(self) -> dict[str, Any]:
         return {
@@ -446,6 +474,29 @@ def _capacity(entry: dict) -> float | None:
     return value
 
 
+def parse_schedules(data: dict) -> tuple[Schedule, ...]:
+    """The schedules of a SLOW or SCHEDULES answer, in the order the cloud gives them."""
+    facility = data.get("facility") or {}
+    root = ((facility.get("configuration") or {}).get("configurationSchedule") or {})
+    out = []
+    for raw in root.get("schedules") or []:
+        event = ((raw.get("event") or {}).get("iCalendarEventJson") or {})
+        out.append(Schedule(
+            id=str(raw.get("id")),
+            summary=raw.get("summary"),
+            schedule_type=raw.get("scheduleType"),
+            origin=raw.get("origin"),
+            is_active=bool(raw.get("isActive")),
+            start=parse_time(event.get("start")),
+            end=parse_time(event.get("end")),
+            rrule=event.get("rruleStr"),
+            applied_at=parse_time(raw.get("appliedAt")),
+            config=EmsConfig.from_api(raw.get("configuration")),
+            config_raw=raw.get("configuration") or None,
+        ))
+    return tuple(out)
+
+
 def parse_slow(data: dict, facility_id: int) -> Slow:
     facility = data.get("facility") or {}
     ui = facility.get("uiComponents") or {}
@@ -462,22 +513,7 @@ def parse_slow(data: dict, facility_id: int) -> Slow:
         inverter_max_w=_capacity(caps.get("UIMaxInverterPowerCapacity", {})),
         main_fuse_a=_capacity(caps.get("UIMainFuseCapacity", {})),
     )
-    sched_root = ((facility.get("configuration") or {}).get("configurationSchedule") or {})
-    schedules = []
-    for raw in sched_root.get("schedules") or []:
-        event = ((raw.get("event") or {}).get("iCalendarEventJson") or {})
-        schedules.append(Schedule(
-            id=str(raw.get("id")),
-            summary=raw.get("summary"),
-            schedule_type=raw.get("scheduleType"),
-            origin=raw.get("origin"),
-            is_active=bool(raw.get("isActive")),
-            start=parse_time(event.get("start")),
-            end=parse_time(event.get("end")),
-            rrule=event.get("rruleStr"),
-            applied_at=parse_time(raw.get("appliedAt")),
-            config=EmsConfig.from_api(raw.get("configuration")),
-        ))
+    schedules = parse_schedules(data)
     rows = ((facility.get("measurements") or {}).get("energy"))
     return Slow(info=info, schedules=tuple(schedules),
                 energy=None if rows is None else sum_energy(rows))
@@ -511,3 +547,80 @@ def parse_facilities(data: dict) -> list[dict[str, Any]]:
             "version": (f.get("info") or {}).get("version"),
         })
     return out
+
+
+# ---------------------------------------------------------------- control
+
+# systemMode of a fixed battery reference: the app's manual schedule.
+MANUAL_MODE = "Default"
+
+CREATE_SCHEDULE = """
+mutation CreateOneNormalConfigurationSchedule($facilityId: Int!, $data: ConfigurationScheduleDataInput!) {
+  createOneNormalConfigurationSchedule(where: {facilityId: $facilityId}, data: $data) {
+    success schedule { id } message code
+  }
+}"""
+
+REMOVE_SCHEDULE = """
+mutation RemoveOneNormalConfigurationSchedule($facilityId: Int!, $id: ID!) {
+  removeOneNormalConfigurationSchedule(where: {facilityId: $facilityId, id: $id}) { success message code }
+}"""
+
+_GRID_FIELDS = ("aceMode", "aceThreshold", "limitImport", "limitExport", "powerThresholdHigh", "powerThresholdLow")
+_BATTERY_FIELDS = ("powerRefCharge", "powerRefDischarge", "socRefLow", "socRefHigh")
+
+
+def config_input(raw: dict | None) -> dict | None:
+    """A configuration as the cloud answered it, in the shape it takes back
+    (``EmsConfigurationInputV1``). None when a part is missing, so that no
+    schedule is ever built from a guess."""
+    if not raw or raw.get("systemMode") is None:
+        return None
+    pv = raw.get("systemSettingsPv") or {}
+    grid = raw.get("systemSettingsGrid") or {}
+    battery = raw.get("systemSettingsBattery") or {}
+    if pv.get("pvMode") is None:
+        return None
+    if any(grid.get(f) is None for f in _GRID_FIELDS) or any(battery.get(f) is None for f in _BATTERY_FIELDS):
+        return None
+    return {
+        "systemMode": raw["systemMode"],
+        "systemSettingsPv": {"pvMode": pv["pvMode"]},
+        "systemSettingsGrid": {f: grid[f] for f in _GRID_FIELDS},
+        "systemSettingsBattery": {f: battery[f] for f in _BATTERY_FIELDS},
+    }
+
+
+def manual_config_input(normal: dict, charge_w: int, discharge_w: int) -> dict:
+    """The battery held at one reference: charging at ``charge_w`` or
+    discharging at ``discharge_w``, the other 0 (PROTOCOL.md). PV and phase
+    balancing stay as the owner has them; the rest is what the app writes
+    for a manual schedule."""
+    return {
+        "systemMode": MANUAL_MODE,
+        "systemSettingsPv": {"pvMode": normal["systemSettingsPv"]["pvMode"]},
+        "systemSettingsGrid": {
+            "aceMode": normal["systemSettingsGrid"]["aceMode"],
+            "aceThreshold": 0,
+            "limitExport": False,
+            "limitImport": False,
+            "powerThresholdHigh": 0,
+            "powerThresholdLow": 0,
+        },
+        "systemSettingsBattery": {
+            "powerRefCharge": charge_w,
+            "powerRefDischarge": discharge_w,
+            "socRefLow": 10,
+            "socRefHigh": 100,
+        },
+    }
+
+
+def schedule_input(summary: str, start: dt.datetime, end: dt.datetime, timezone: str,
+                   configuration: dict) -> dict:
+    """``ConfigurationScheduleDataInput`` for a one-off event, which has no rrule."""
+    return {
+        "summary": summary,
+        "iCalendarEventJson": {"start": iso(start), "end": iso(end), "summary": summary, "timezone": timezone},
+        "configuration": {"emsConfigurationV1": configuration},
+    }

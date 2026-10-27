@@ -64,11 +64,19 @@
       "system_mode": { "name": "Driftläge" },
       "active_schedule": { "name": "Aktivt schema" },
       "ferroai_action": { "name": "FerroAI:s åtgärd" },
-      "last_seen": { "name": "Senast hörd" }
+      "last_seen": { "name": "Senast hörd" },
+      "last_command": { "name": "Senaste kommando" }
     },
     "binary_sensor": {
       "online": { "name": "Uppkopplad" },
-      "ferroai": { "name": "FerroAI" }
+      "ferroai": { "name": "FerroAI" },
+      "following": { "name": "Följer styrningen" }
+    },
+    "switch": {
+      "control_enabled": { "name": "Styrning aktiv" }
+    },
+    "number": {
+      "battery_power_setpoint": { "name": "Batteriets effektbörvärde" }
     }
   }
 }

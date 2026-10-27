@@ -160,7 +160,10 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: FerroampCloudConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     coordinator = entry.runtime_data
-    async_add_entities(CloudSensor(coordinator, description) for description in SENSORS)
+    async_add_entities([
+        *(CloudSensor(coordinator, description) for description in SENSORS),
+        LastCommandSensor(coordinator),
+    ])
 
 
 class CloudSensor(FerroampCloudEntity, SensorEntity):
@@ -189,3 +192,25 @@ class CloudSensor(FerroampCloudEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
         return self.entity_description.attributes(self.coordinator.data)
+
+
+class LastCommandSensor(FerroampCloudEntity, SensorEntity):
+    """What the driver last asked the cloud for, and whether the cloud took it.
+    The following sensor is EMS's own check; this one says what was asked."""
+
+    def __init__(self, coordinator: FerroampCloudCoordinator) -> None:
+        super().__init__(coordinator, "sensor", "last_command")
+
+    @property
+    def native_value(self) -> str:
+        return self.coordinator.control.result
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        control = self.coordinator.control
+        return {
+            "command": control.command,
+            "reason": control.reason,
+            "setpoint_w": control.setpoint_w,
+            "enabled": control.enabled,
+        }

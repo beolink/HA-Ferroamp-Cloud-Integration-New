@@ -340,6 +340,33 @@ schedule starts and the system goes back to its own configuration. "The
 owner's normal configuration" is the recurring schedule that would be in
 force now, else the fallback.
 
+### How the driver writes (0.2)
+
+`control.py` writes what the paragraphs above call for, and nothing else:
+
+- A setpoint `P` (EMS's sign, + charges) creates the return first: a one-off
+  schedule from `T + 10 min` with the owner's `EmsConfigurationV1`. Then it
+  creates the manual schedule from `T` to `T + 10 min` (`systemMode: Default`,
+  `powerRefCharge` or `powerRefDischarge` = |P| up to the rated power, the other
+  0, SoC 10 to 100). `T` is the first whole minute at least 30 s ahead.
+- The owner's configuration is the one `emsConfiguration.current` shows while no
+  command stands. While one does, it is the configuration the driver's last
+  return schedule carries, so a restart does not lose it.
+- A renewal comes every 300 s while a command stands. It creates the new pair,
+  then removes what is no longer needed: schedules not yet started, and earlier
+  ones. It never removes the schedule in force, the one that started last, so the
+  cloud never falls back to an older one.
+- `P = 0` creates a return from `T` and removes the rest. Nothing is written when
+  there is nothing to undo.
+- FerroAI on, or a system without the new scheduler, refuses the write before
+  anything is created.
+
+The driver relies on these, none of which a live run has confirmed yet: a
+schedule may start on a whole minute (the app offers quarter-hours only); a
+schedule starting 30 to 90 s ahead is accepted; removing a schedule that is not
+in force changes nothing; a discharge reference is obeyed the way the charge
+reference is (the schedule test saw charging only).
+
 ## Still open
 
 1. Whether the API takes start and end times off the quarter-hour.

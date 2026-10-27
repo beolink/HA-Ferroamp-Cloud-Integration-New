@@ -34,3 +34,19 @@ GRAPHQL_URL = "https://api.eu.prod.ferroamp.com/graphql"
 
 # Refresh the access token this long before it runs out.
 TOKEN_MARGIN_S = 60
+
+# Battery control, written as configuration schedules (control.py). Only
+# schedules whose summary starts with CONTROL_PREFIX are ever removed.
+CONTROL_PREFIX = "EMS control:"
+RETURN_SUMMARY = "EMS control: return to normal"
+# A command stands this long after it was written. When nothing renews it,
+# the return schedule at the end of the window gives the system back to the
+# owner's configuration (PROTOCOL.md: the end of a schedule does nothing).
+WINDOW_S = 600
+# EMS writes the setpoint every tick (five minutes). The driver renews a
+# standing command on its own timer when nothing writes it.
+REFRESH_S = 300
+# A schedule starts at the first whole minute at least this far ahead.
+START_LEAD_S = 30
+# The number's range when the battery's rated power is not known yet.
+RATED_FALLBACK_W = 15000
