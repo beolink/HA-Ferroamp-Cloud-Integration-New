@@ -35,6 +35,8 @@ change to use it:
 |--------|---------|
 | `switch.ferroamp_control_enabled` | The gate, **off** after install. Off, nothing is written. Turning it off hands the system back at once. |
 | `number.ferroamp_battery_power_setpoint` | W, signed: positive charges, negative discharges, 0 hands the system back to the owner's configuration. EMS writes it every tick. |
+| `select.ferroamp_mode` | `self_consumption`, `peak_shaving`, `forced_charge`, `forced_discharge` or `idle`, as in ha-ferroamp-control. `idle` hands the battery back whatever the setpoint says; the other modes follow the setpoint. |
+| `number.ferroamp_grid_power_limit` | W, an import cap. Kept and reported, never sent: the cloud has no import-cap command here, as in ha-ferroamp-control. Writing the maximum releases it. |
 | `binary_sensor.ferroamp_following` | On when the cloud took the latest write, off when it refused it. `last_nak` says why. |
 | `sensor.ferroamp_last_command` | `idle`, `pending`, `ack` or `nak`, with the command and the reason as attributes. |
 
@@ -45,6 +47,10 @@ while it is renewed, every five minutes, by EMS or by the driver's own timer.
 If Home Assistant stops, or the renewals stop, the return starts and the system
 goes back to what the owner set. The driver removes only schedules whose name
 starts with `EMS control:`, and never the one in force.
+
+The mode is restored after a restart without a write, like the setpoint. The cloud's own
+self-consumption and peak-shaving configurations are not used yet: those modes follow the
+setpoint, as they do in ha-ferroamp-control.
 
 Writes are refused, and the reason is shown, while FerroAI is on (the cloud
 refuses owner schedules then), on a system without configuration schedules, and

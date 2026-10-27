@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.0 (unreleased)
+
+Parity with the contract entities of ha-ferroamp-control.
+
+- `select.{prefix}_mode` with the five modes. `idle` hands the battery back whatever the setpoint
+  says; the other modes follow the setpoint, as in ha-ferroamp-control. The cloud's own
+  self-consumption and peak-shaving configurations are not used yet.
+- `number.{prefix}_grid_power_limit`: kept and reported, never sent (the cloud has no import cap
+  to set). Writing the maximum releases it.
+- The mode and the grid limit are restored after a restart without a write.
+
 ## 0.2.0 (unreleased)
 
 Battery control, written as configuration schedules. Tested against a

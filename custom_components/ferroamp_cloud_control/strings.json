@@ -76,7 +76,20 @@
       "control_enabled": { "name": "Control enabled" }
     },
     "number": {
-      "battery_power_setpoint": { "name": "Battery power setpoint" }
+      "battery_power_setpoint": { "name": "Battery power setpoint" },
+      "grid_power_limit": { "name": "Grid power limit" }
+    },
+    "select": {
+      "mode": {
+        "name": "Mode",
+        "state": {
+          "self_consumption": "Self-consumption",
+          "peak_shaving": "Peak shaving",
+          "forced_charge": "Forced charge",
+          "forced_discharge": "Forced discharge",
+          "idle": "Idle"
+        }
+      }
     }
   }
 }

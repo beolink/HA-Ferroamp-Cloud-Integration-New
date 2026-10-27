@@ -28,7 +28,7 @@ from typing import Any
 
 from . import protocol
 from .api import AuthError, CloudError
-from .const import CONTROL_PREFIX, REFRESH_S, RETURN_SUMMARY, START_LEAD_S, WINDOW_S
+from .const import CONTROL_PREFIX, MODE_IDLE, MODE_SELF_CONSUMPTION, REFRESH_S, RETURN_SUMMARY, START_LEAD_S, WINDOW_S
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -143,9 +143,16 @@ class Controller:
         self._last_write: dt.datetime | None = None
         self.enabled = False
         self.setpoint_w = 0.0
+        self.mode = MODE_SELF_CONSUMPTION
+        # Kept and reported, never sent: the cloud has no import cap to set. Same as ha-ferroamp-control.
+        self.grid_limit_w: float | None = None
         self.result = "idle"    # idle, pending, ack (the cloud took it) or nak (it did not)
         self.reason: str | None = None
         self.command: dict[str, Any] = {}
+
+    def effective_setpoint(self) -> float:
+        """What the battery is asked for. Idle hands it back whatever the setpoint says."""
+        return 0.0 if self.mode == MODE_IDLE else self.setpoint_w
 
     def observe(self, live: protocol.Live) -> None:
         """Keep the owner's configuration. A manual configuration is the
@@ -157,7 +164,7 @@ class Controller:
     def renewal_due(self, now: dt.datetime) -> bool:
         """A standing command is written again every REFRESH_S, also when EMS
         does not write, so a missed tick does not end it."""
-        return (self.enabled and not is_hand_back(self.setpoint_w) and self._last_write is not None
+        return (self.enabled and not is_hand_back(self.effective_setpoint()) and self._last_write is not None
                 and now - self._last_write >= dt.timedelta(seconds=REFRESH_S))
 
     async def write(self, setpoint_w: float, *, live: protocol.Live, info: protocol.Info | None,
@@ -172,7 +179,7 @@ class Controller:
             self._last_write = now
             self._set("pending", None)
             try:
-                await self._apply(setpoint_w, live=live, info=info, now=now)
+                await self._apply(self.effective_setpoint(), live=live, info=info, now=now)
             except ControlRefused as err:
                 self._set("nak", str(err))
             except (AuthError, CloudError) as err:
@@ -225,7 +232,9 @@ class Controller:
     def as_dict(self) -> dict[str, Any]:
         return {
             "enabled": self.enabled,
+            "mode": self.mode,
             "setpoint_w": self.setpoint_w,
+            "grid_limit_w": self.grid_limit_w,
             "result": self.result,
             "reason": self.reason,
             "command": self.command,

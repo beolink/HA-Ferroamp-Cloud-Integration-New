@@ -10,7 +10,13 @@ from _cloud_sim import NORMAL, PEAK, CloudSim, live_raw, slow_raw
 
 from custom_components.ferroamp_cloud_control import control, protocol
 from custom_components.ferroamp_cloud_control.api import CloudError
-from custom_components.ferroamp_cloud_control.const import CONTROL_PREFIX, RETURN_SUMMARY, WINDOW_S
+from custom_components.ferroamp_cloud_control.const import (
+    CONTROL_PREFIX,
+    MODE_FORCED_CHARGE,
+    MODE_IDLE,
+    RETURN_SUMMARY,
+    WINDOW_S,
+)
 
 TZ = "Europe/Stockholm"
 NOW = dt.datetime(2026, 10, 27, 20, 0, 20, tzinfo=dt.UTC)     # the next whole minute is 20:01
@@ -446,3 +452,60 @@ def test_as_dict_says_what_the_driver_last_did():
     state = asyncio.run(go())
     assert state["result"] == "ack" and state["setpoint_w"] == 2000 and state["enabled"] is True
     assert state["command"]["action"] == "charge"
+
+
+# ---------------------------------------------------------------- modes (select.{prefix}_mode)
+
+
+def test_idle_hands_the_battery_back_whatever_the_setpoint():
+    sim = CloudSim()
+    sim.schedules = [raw_schedule("9", f"{CONTROL_PREFIX} charge 2000 W", start=NOW - dt.timedelta(minutes=5))]
+
+    async def go():
+        ctl = controller(sim)
+        ctl.mode = MODE_IDLE
+        await ctl.write(2000, live=LIVE, info=INFO, now=NOW)
+        return ctl
+
+    ctl = asyncio.run(go())
+    assert [v["data"]["summary"] for v in sim.calls_named("create")] == [RETURN_SUMMARY]
+    assert ctl.result == "ack" and ctl.command["action"] == "return"
+    assert sim.schedules[0]["id"] == "9"    # the charge in force stays until the return starts
+
+
+def test_the_other_modes_follow_the_setpoint_as_in_the_mqtt_driver():
+    sim = CloudSim()
+
+    async def go():
+        ctl = controller(sim)
+        ctl.mode = MODE_FORCED_CHARGE
+        await ctl.write(-1500, live=LIVE, info=INFO, now=NOW)
+
+    asyncio.run(go())
+    assert [v["data"]["summary"] for v in sim.calls_named("create")] == [
+        RETURN_SUMMARY, f"{CONTROL_PREFIX} discharge 1500 W"]
+
+
+def test_renewal_stops_while_idle():
+    sim = CloudSim()
+
+    async def go():
+        ctl = controller(sim)
+        ctl.mode = MODE_IDLE
+        await ctl.write(2000, live=LIVE, info=INFO, now=NOW)
+        return ctl.renewal_due(NOW + dt.timedelta(minutes=6))
+
+    assert asyncio.run(go()) is False
+
+
+def test_the_grid_power_limit_is_reported_and_never_sent():
+    sim = CloudSim()
+
+    async def go():
+        ctl = controller(sim)
+        ctl.grid_limit_w = 5000.0
+        return ctl.as_dict()
+
+    state = asyncio.run(go())
+    assert state["grid_limit_w"] == 5000.0 and state["mode"] == "self_consumption"
+    assert sim.calls == []

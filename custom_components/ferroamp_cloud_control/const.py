@@ -50,3 +50,13 @@ REFRESH_S = 300
 START_LEAD_S = 30
 # The number's range when the battery's rated power is not known yet.
 RATED_FALLBACK_W = 15000
+
+# The modes of the EMS inverter contract (select.{prefix}_mode), named as in
+# ha-ferroamp-control. Only idle changes what the driver does: it hands the
+# battery back whatever the setpoint says. The others follow the setpoint.
+MODE_SELF_CONSUMPTION = "self_consumption"
+MODE_PEAK_SHAVING = "peak_shaving"
+MODE_FORCED_CHARGE = "forced_charge"
+MODE_FORCED_DISCHARGE = "forced_discharge"
+MODE_IDLE = "idle"
+MODES = [MODE_SELF_CONSUMPTION, MODE_PEAK_SHAVING, MODE_FORCED_CHARGE, MODE_FORCED_DISCHARGE, MODE_IDLE]

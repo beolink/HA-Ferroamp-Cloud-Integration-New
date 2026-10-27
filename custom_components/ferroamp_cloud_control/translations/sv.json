@@ -76,7 +76,20 @@
       "control_enabled": { "name": "Styrning aktiv" }
     },
     "number": {
-      "battery_power_setpoint": { "name": "Batteriets effektbörvärde" }
+      "battery_power_setpoint": { "name": "Batteriets effektbörvärde" },
+      "grid_power_limit": { "name": "Nätets effektgräns" }
+    },
+    "select": {
+      "mode": {
+        "name": "Läge",
+        "state": {
+          "self_consumption": "Egenförbrukning",
+          "peak_shaving": "Toppkapning",
+          "forced_charge": "Tvingad laddning",
+          "forced_discharge": "Tvingad urladdning",
+          "idle": "Vila"
+        }
+      }
     }
   }
 }

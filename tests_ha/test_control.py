@@ -94,3 +94,33 @@ async def test_a_restart_restores_the_switch_and_setpoint_and_writes_nothing(has
     assert float(hass.states.get(SETPOINT).state) == -1500.0
     # Nothing is written until EMS writes again: no schedule is created or removed.
     assert [name for name, _ in sim.calls if name in ("create", "remove")] == []
+
+
+SELECT = "select.ferroamp_mode"
+GRID_LIMIT = "number.ferroamp_grid_power_limit"
+
+
+async def test_mode_idle_hands_the_battery_back_and_the_other_modes_follow_the_setpoint(hass: HomeAssistant):
+    sim = CloudSim()
+    await set_up(hass, sim)
+    assert hass.states.get(SELECT).attributes["options"] == [
+        "self_consumption", "peak_shaving", "forced_charge", "forced_discharge", "idle"]
+    await call(hass, "switch", "turn_on", {"entity_id": SWITCH})
+    await call(hass, "number", "set_value", {"entity_id": SETPOINT, "value": 2000})
+    assert sim.schedules[-1]["summary"] == f"{CONTROL_PREFIX} charge 2000 W"
+
+    await call(hass, "select", "select_option", {"entity_id": SELECT, "option": "idle"})
+
+    assert hass.states.get(SELECT).state == "idle"
+    assert hass.states.get(LAST_COMMAND).attributes["command"]["action"] == "return"
+    assert sim.schedules[-1]["summary"] == RETURN_SUMMARY
+
+
+async def test_the_grid_power_limit_is_kept_and_nothing_is_sent(hass: HomeAssistant):
+    sim = CloudSim()
+    await set_up(hass, sim)
+
+    await call(hass, "number", "set_value", {"entity_id": GRID_LIMIT, "value": 5000})
+
+    assert float(hass.states.get(GRID_LIMIT).state) == 5000.0
+    assert sim.calls_named("create") == []

@@ -1,5 +1,5 @@
-"""The battery power setpoint of the EMS inverter contract: positive charges,
-negative discharges, and 0 hands the system back to its own configuration."""
+"""The numbers of the EMS inverter contract: the battery power setpoint (signed W, + charges, 0 hands the
+battery back) and the grid power limit (an import cap, kept and reported, never sent)."""
 
 from __future__ import annotations
 
@@ -19,7 +19,23 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: FerroampCloudConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     coordinator = entry.runtime_data
-    async_add_entities([BatterySetpoint(coordinator)])
+    async_add_entities([BatterySetpoint(coordinator), GridPowerLimit(coordinator)])
+
+
+def _rated_w(coordinator: FerroampCloudCoordinator) -> float:
+    slow = coordinator.data.slow if coordinator.data else None
+    if slow and slow.info.battery_max_w:
+        return slow.info.battery_max_w
+    return RATED_FALLBACK_W
+
+
+def _restored_float(last) -> float | None:
+    if last is None or last.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
+        return None
+    try:
+        return float(last.state)
+    except ValueError:
+        return None
 
 
 class BatterySetpoint(FerroampCloudEntity, NumberEntity, RestoreEntity):
@@ -35,19 +51,12 @@ class BatterySetpoint(FerroampCloudEntity, NumberEntity, RestoreEntity):
         super().__init__(coordinator, "number", "battery_power_setpoint")
 
     @property
-    def _rated_w(self) -> float:
-        slow = self.coordinator.data.slow if self.coordinator.data else None
-        if slow and slow.info.battery_max_w:
-            return slow.info.battery_max_w
-        return RATED_FALLBACK_W
-
-    @property
     def native_min_value(self) -> float:
-        return -self._rated_w
+        return -_rated_w(self.coordinator)
 
     @property
     def native_max_value(self) -> float:
-        return self._rated_w
+        return _rated_w(self.coordinator)
 
     @property
     def native_value(self) -> float:
@@ -55,12 +64,43 @@ class BatterySetpoint(FerroampCloudEntity, NumberEntity, RestoreEntity):
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
-        last = await self.async_get_last_state()
-        if last is not None and last.state not in (STATE_UNKNOWN, STATE_UNAVAILABLE):
-            try:
-                self.coordinator.control.setpoint_w = float(last.state)
-            except ValueError:
-                pass
+        value = _restored_float(await self.async_get_last_state())
+        if value is not None:
+            self.coordinator.control.setpoint_w = value
 
     async def async_set_native_value(self, value: float) -> None:
         await self.coordinator.async_set_setpoint(value)
+
+
+class GridPowerLimit(FerroampCloudEntity, NumberEntity, RestoreEntity):
+    """The import cap of the EMS inverter contract. Kept and reported, never sent: the cloud has no
+    import-cap command here, as in ha-ferroamp-control. Writing the maximum releases the cap."""
+
+    _attr_device_class = NumberDeviceClass.POWER
+    _attr_native_step = 1
+    _attr_native_unit_of_measurement = UnitOfPower.WATT
+    _attr_mode = NumberMode.BOX
+
+    def __init__(self, coordinator: FerroampCloudCoordinator) -> None:
+        super().__init__(coordinator, "number", "grid_power_limit")
+
+    @property
+    def native_min_value(self) -> float:
+        return 0.0
+
+    @property
+    def native_max_value(self) -> float:
+        return _rated_w(self.coordinator)
+
+    @property
+    def native_value(self) -> float | None:
+        return self.coordinator.control.grid_limit_w
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        value = _restored_float(await self.async_get_last_state())
+        if value is not None:
+            self.coordinator.control.grid_limit_w = value
+
+    async def async_set_native_value(self, value: float) -> None:
+        self.coordinator.async_set_grid_limit(value)

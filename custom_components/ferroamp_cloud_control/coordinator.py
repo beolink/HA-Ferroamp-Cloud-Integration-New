@@ -79,6 +79,18 @@ class FerroampCloudCoordinator(DataUpdateCoordinator[CloudData]):
             await self.control.release(live=live, info=info, now=now)
         self.async_update_listeners()
 
+    async def async_set_mode(self, mode: str) -> None:
+        """The mode select. Idle hands the battery back; the other modes follow the setpoint."""
+        self.control.mode = mode
+        live, info = self._snapshot()
+        await self.control.write(self.control.setpoint_w, live=live, info=info, now=dt_util.utcnow())
+        self.async_update_listeners()
+
+    def async_set_grid_limit(self, watts: float) -> None:
+        """EMS's import cap. Kept and reported; nothing is sent (see Controller.grid_limit_w)."""
+        self.control.grid_limit_w = watts
+        self.async_update_listeners()
+
     def _snapshot(self) -> tuple[protocol.Live, protocol.Info | None]:
         if self.data is None:
             return protocol.Live(), None
