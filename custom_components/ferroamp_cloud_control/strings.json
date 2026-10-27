@@ -1,0 +1,74 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Ferroamp Cloud Control",
+        "description": "Log in with the account you use in the Ferroamp app. The password is used once and not stored; Home Assistant keeps the login token Ferroamp hands out. The prefix must match the one EMS reads (default 'ferroamp').",
+        "data": {
+          "email": "E-mail",
+          "password": "Password",
+          "prefix": "Entity prefix"
+        }
+      },
+      "facility": {
+        "title": "Choose the system",
+        "description": "The account can see more than one Ferroamp system.",
+        "data": {
+          "facility_id": "System"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Log in to Ferroamp again",
+        "description": "Ferroamp no longer accepts the stored login. Log in again with the account you use in the Ferroamp app.",
+        "data": {
+          "email": "E-mail",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Ferroamp refused the login. Check the e-mail and password; an account that signs in with Apple or Google only has no password for this login.",
+      "cannot_connect": "Could not reach Ferroamp's cloud.",
+      "no_facilities": "The account has no Ferroamp system."
+    },
+    "abort": {
+      "already_configured": "This system is already set up.",
+      "reauth_successful": "Logged in again."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Ferroamp Cloud Control",
+        "data": {
+          "scan_interval": "Poll interval"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "soc": { "name": "State of charge" },
+      "battery_power": { "name": "Battery power" },
+      "grid_power": { "name": "Grid power" },
+      "solar_power": { "name": "Solar power" },
+      "consumption_power": { "name": "Consumption power" },
+      "battery_capacity": { "name": "Battery capacity" },
+      "max_charge_power": { "name": "Battery rated power" },
+      "solar_energy_today": { "name": "Solar energy today" },
+      "consumption_energy_today": { "name": "Consumption energy today" },
+      "grid_import_energy_today": { "name": "Grid import today" },
+      "grid_export_energy_today": { "name": "Grid export today" },
+      "battery_charged_energy_today": { "name": "Battery charged today" },
+      "battery_discharged_energy_today": { "name": "Battery discharged today" },
+      "system_mode": { "name": "System mode" },
+      "active_schedule": { "name": "Active schedule" },
+      "ferroai_action": { "name": "FerroAI action" },
+      "last_seen": { "name": "Last seen" }
+    },
+    "binary_sensor": {
+      "online": { "name": "Online" },
+      "ferroai": { "name": "FerroAI" }
+    }
+  }
+}

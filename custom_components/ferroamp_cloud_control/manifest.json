@@ -1,0 +1,14 @@
+{
+  "domain": "ferroamp_cloud_control",
+  "name": "Ferroamp Cloud Control",
+  "codeowners": [
+    "@beolink"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/beolink/HA-Ferroamp-Cloud-Integration-New",
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/beolink/HA-Ferroamp-Cloud-Integration-New/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

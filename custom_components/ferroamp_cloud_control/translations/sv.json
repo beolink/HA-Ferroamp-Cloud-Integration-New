@@ -1,0 +1,74 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Ferroamp Cloud Control",
+        "description": "Logga in med kontot du använder i Ferroamp-appen. Lösenordet används en gång och sparas inte; Home Assistant behåller inloggningstoken som Ferroamp lämnar ut. Prefixet måste stämma med det EMS läser (förval 'ferroamp').",
+        "data": {
+          "email": "E-post",
+          "password": "Lösenord",
+          "prefix": "Prefix för entiteter"
+        }
+      },
+      "facility": {
+        "title": "Välj anläggning",
+        "description": "Kontot ser mer än en Ferroamp-anläggning.",
+        "data": {
+          "facility_id": "Anläggning"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Logga in på Ferroamp igen",
+        "description": "Ferroamp godtar inte längre den sparade inloggningen. Logga in igen med kontot du använder i Ferroamp-appen.",
+        "data": {
+          "email": "E-post",
+          "password": "Lösenord"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Ferroamp godtog inte inloggningen. Kontrollera e-post och lösenord; ett konto som bara loggar in med Apple eller Google har inget lösenord för den här inloggningen.",
+      "cannot_connect": "Kunde inte nå Ferroamps moln.",
+      "no_facilities": "Kontot har ingen Ferroamp-anläggning."
+    },
+    "abort": {
+      "already_configured": "Anläggningen är redan inlagd.",
+      "reauth_successful": "Inloggad igen."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Ferroamp Cloud Control",
+        "data": {
+          "scan_interval": "Avläsningsintervall"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "soc": { "name": "Laddnivå" },
+      "battery_power": { "name": "Batterieffekt" },
+      "grid_power": { "name": "Näteffekt" },
+      "solar_power": { "name": "Soleffekt" },
+      "consumption_power": { "name": "Förbrukning" },
+      "battery_capacity": { "name": "Batterikapacitet" },
+      "max_charge_power": { "name": "Batteriets märkeffekt" },
+      "solar_energy_today": { "name": "Solenergi i dag" },
+      "consumption_energy_today": { "name": "Förbrukning i dag" },
+      "grid_import_energy_today": { "name": "Köpt el i dag" },
+      "grid_export_energy_today": { "name": "Såld el i dag" },
+      "battery_charged_energy_today": { "name": "Laddat i dag" },
+      "battery_discharged_energy_today": { "name": "Urladdat i dag" },
+      "system_mode": { "name": "Driftläge" },
+      "active_schedule": { "name": "Aktivt schema" },
+      "ferroai_action": { "name": "FerroAI:s åtgärd" },
+      "last_seen": { "name": "Senast hörd" }
+    },
+    "binary_sensor": {
+      "online": { "name": "Uppkopplad" },
+      "ferroai": { "name": "FerroAI" }
+    }
+  }
+}

@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.idea/
+.vscode/
+.DS_Store
+*.log
+.pytest_cache/
+# Probe and monitor output: facility data, and Ferroamp's own schema
+probe.json
+schema.json
+monitor.jsonl
+.ruff_cache/
