@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- README: the control has run on one live facility (charge 100 W and
+  1 000 W with renewal, `idle` handing back, the switch off); a discharge and
+  the removal of schedules no longer in force are still to be seen live. The
+  0.2.0 note below ("not yet run on a live facility") was true for that
+  release.
+
 ## 0.3.0 — 2026-10-28
 
 Parity with the contract entities of ha-ferroamp-control.
