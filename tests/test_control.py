@@ -509,3 +509,68 @@ def test_the_grid_power_limit_is_reported_and_never_sent():
     state = asyncio.run(go())
     assert state["grid_limit_w"] == 5000.0 and state["mode"] == "self_consumption"
     assert sim.calls == []
+
+
+# ---------------------------------------------------------------- the verdict with the switch off
+
+
+def test_a_write_with_the_switch_off_keeps_the_hand_back_verdict():
+    """EMS writes every tick, also with the switch off; that must not wipe
+    what release() said."""
+    sim = CloudSim()
+
+    async def go():
+        ctl = controller(sim)
+        await ctl.write(2000, live=LIVE, info=INFO, now=NOW)
+        ctl.enabled = False
+        await ctl.release(live=LIVE, info=INFO, now=NOW + dt.timedelta(minutes=2))
+        calls = len(sim.calls)
+        await ctl.write(0, live=LIVE, info=INFO, now=NOW + dt.timedelta(minutes=5))
+        return ctl, len(sim.calls) - calls
+
+    ctl, new_calls = asyncio.run(go())
+    assert ctl.result == "idle" and ctl.reason == control.HANDED_BACK
+    assert new_calls == 0
+
+
+def test_a_failed_hand_back_stays_a_nak_until_the_return_is_in_force():
+    sim = CloudSim()
+
+    async def go():
+        ctl = controller(sim)
+        await ctl.write(2000, live=LIVE, info=INFO, now=NOW)
+        ctl.enabled = False
+        sim.fail = CloudError("unreachable")
+        await ctl.release(live=LIVE, info=INFO, now=NOW + dt.timedelta(minutes=2))
+        sim.fail = None
+        await ctl.write(0, live=LIVE, info=INFO, now=NOW + dt.timedelta(minutes=5))
+        after_write = (ctl.result, ctl.reason)
+        await ctl.tidy(NOW + dt.timedelta(minutes=6))       # the manual is still in force
+        under_command = ctl.result
+        await ctl.tidy(START + WINDOW + dt.timedelta(minutes=1))   # the return has started
+        return after_write, under_command, ctl
+
+    (result, reason), under_command, ctl = asyncio.run(go())
+    assert result == "nak" and reason.startswith("the cloud did not answer")
+    assert under_command == "nak"
+    assert ctl.result == "idle" and ctl.reason == control.HANDED_BACK
+
+
+def test_a_failed_removal_in_tidy_is_a_nak():
+    sim = CloudSim()
+
+    async def go():
+        ctl = controller(sim)
+        await ctl.write(2000, live=LIVE, info=INFO, now=NOW)
+        ctl.enabled = False
+        await ctl.release(live=LIVE, info=INFO, now=NOW + dt.timedelta(minutes=2))
+        sim.remove_refusals = ["busy"]
+        await ctl.tidy(NOW + dt.timedelta(minutes=11))
+        failed = (ctl.result, ctl.reason)
+        await ctl.tidy(NOW + dt.timedelta(minutes=21))
+        return failed, ctl
+
+    (result, reason), ctl = asyncio.run(go())
+    assert result == "nak" and reason.startswith("1 earlier schedule(s) could not be removed")
+    assert ctl.result == "idle" and ctl.reason == control.HANDED_BACK
+    assert [s["summary"] for s in sim.schedules] == [RETURN_SUMMARY]

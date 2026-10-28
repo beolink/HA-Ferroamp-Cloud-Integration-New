@@ -1,10 +1,22 @@
 # Changelog
 
-## Unreleased
+## 0.3.1 (2026-10-28)
 
-- README: the control has been tested on a live ESO 15 facility, all the
-  checks in "Verify on your system first" on the 0.3.0 beta, and runs there
-  in production. The 0.2.0 note below ("not yet run on a live facility") was
+All of the battery control from 0.2.0 and 0.3.0, tested on a live ESO 15
+facility, with one fix to what the entities say while the switch is off.
+
+- The verdict on handing back now stands while the switch is off. EMS writes
+  the setpoint every tick, also with the switch off, and each write replaced
+  what the hand-back had said with "control is off": a failed hand-back showed
+  as a nak for one tick at most, and `binary_sensor.{prefix}_following` went
+  back to unknown. A failed hand-back now stays a nak until the return
+  schedule is in force, and a good one keeps "the owner's configuration is
+  back". Nothing more is sent to the cloud than before.
+- With the switch off, the tidy-up of the driver's old schedules reports a
+  removal it could not make as a nak, as a write does.
+- README: the control is tested on a live ESO 15 facility, all the checks in
+  "Verify on your system first" on the 0.3.0 beta, and runs there in
+  production. The 0.2.0 note below ("not yet run on a live facility") was
   true for that release.
 
 ## 0.3.0 — 2026-10-28

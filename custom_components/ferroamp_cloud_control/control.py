@@ -35,6 +35,10 @@ _LOGGER = logging.getLogger(__name__)
 WINDOW = dt.timedelta(seconds=WINDOW_S)
 _EPOCH = dt.datetime(1970, 1, 1, tzinfo=dt.UTC)
 
+# What the entities say while the switch is off.
+CONTROL_OFF = "control is off"
+HANDED_BACK = "control is off; the owner's configuration is back"
+
 
 class ControlRefused(Exception):
     """The cloud refused a schedule, or the system cannot take one now. The
@@ -173,7 +177,12 @@ class Controller:
         self.setpoint_w = setpoint_w
         self.observe(live)
         if not self.enabled:
-            self._set("idle", "control is off")
+            # EMS writes every tick, also with the switch off. The verdict on
+            # handing back stands until the switch comes on again: a failed
+            # hand-back stays a nak (tidy() clears it once the return is in
+            # force), and a good one keeps its words.
+            if self.result != "nak" and not (self.reason or "").startswith(CONTROL_OFF):
+                self._set("idle", CONTROL_OFF)
             return
         async with self._lock:
             self._last_write = now
@@ -194,7 +203,7 @@ class Controller:
             try:
                 owned = await self._owned(now)
                 if not owned:
-                    self._set("idle", "control is off")
+                    self._set("idle", CONTROL_OFF)
                     return
                 rated_w, timezone = self._check(live, info)
                 start = next_start(now)
@@ -205,7 +214,7 @@ class Controller:
                 if failed:
                     self._set("nak", _removal_reason(failed), command)
                 else:
-                    self._set("idle", "control is off; the owner's configuration is back", command)
+                    self._set("idle", HANDED_BACK, command)
             except ControlRefused as err:
                 self._set("nak", str(err))
             except (AuthError, CloudError) as err:
@@ -226,8 +235,15 @@ class Controller:
                 return
             keep = _in_force(owned, now)
             stale = tuple(s.id for s in owned if s is not keep and not _is_future(s, now))
+            failed = 0
             if stale:
-                await self._execute(Plan(creates=(), removes=stale, target=None))
+                _ids, failed = await self._execute(Plan(creates=(), removes=stale, target=None))
+            if failed:
+                self._set("nak", _removal_reason(failed))
+            elif self.result == "nak" and (keep is None or keep.summary == RETURN_SUMMARY):
+                # A hand-back that failed earlier is over: the return is in
+                # force, or nothing of the driver's is.
+                self._set("idle", HANDED_BACK)
 
     def as_dict(self) -> dict[str, Any]:
         return {
