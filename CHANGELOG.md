@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.0 (unreleased)
+## 0.3.0 — 2026-10-28
 
 Parity with the contract entities of ha-ferroamp-control.
 
@@ -11,7 +11,7 @@ Parity with the contract entities of ha-ferroamp-control.
   to set). Writing the maximum releases it.
 - The mode and the grid limit are restored after a restart without a write.
 
-## 0.2.0 (unreleased)
+## 0.2.0 — 2026-10-27 (beta)
 
 Battery control, written as configuration schedules. Tested against a
 simulated cloud; not yet run on a live facility (see the README).
