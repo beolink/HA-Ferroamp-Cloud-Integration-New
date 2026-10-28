@@ -11,7 +11,7 @@ an ExtAPI for OS 7 is planned for Q1 2027). The web portal does not manage
 these systems either; only the Ferroamp app does. This driver talks to the
 same cloud API as the app.
 
-## Status: 0.3, control run on one live facility; discharge not yet seen
+## Status: 0.3, control tested on a live facility and in production
 
 - Telemetry under the names [EMS Steward](https://github.com/beolink/ha-ems)
   reads, so EMS finds them on its own: `sensor.ferroamp_soc`,
@@ -65,19 +65,13 @@ Known side effects:
   next start after control ends.
 - If EMS stops writing while the switch is on, the driver keeps renewing the
   last command. Turn the switch off to hand back.
-- Discharge has not been seen on a live system yet (PROTOCOL.md, still open).
 
 ### Verify on your system first
 
-The write path is tested against a simulated cloud and has run on one live
-ESO 15 facility (2026-10-27 and 28): a charge of 100 W and of 1 000 W, each
-starting at the next whole minute and renewed; `idle`, which handed back (the
-return was acknowledged and the owner's peak-shaving configuration was in
-force again about two minutes later); and the switch off ("control is off;
-the owner's configuration is back"). Not yet seen live: a discharge (a
-negative setpoint), and the removal of the driver's schedules that are no
-longer in force. On a system where a short charge or discharge is harmless,
-check in this order:
+The write path is tested against a simulated cloud, and all the checks below
+have been run on the 0.3.0 beta on a live ESO 15 facility, where the driver
+now runs in production. On another system, where a short charge or discharge
+is harmless, check in this order:
 
 1. Switch control on and set the setpoint to 100 W (EMS's hold).
    `sensor.ferroamp_last_command` should read `ack`, the app should list
