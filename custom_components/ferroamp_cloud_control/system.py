@@ -21,11 +21,27 @@ from typing import Any, Final
 
 from .protocol import _float, iso, parse_time
 
+# The basics, split the way the account may read them: the user app itself
+# never asks for systemState or the control computer's change log, and asks
+# for singleBoardComputer only in the installer's views, so each of those is
+# a part of its own and a refusal of one leaves the others.
 BASICS: Final = """
 query SystemBasics($id: Int!) { facility(where: {id: {equals: $id}}) {
   hostname installedOn info { version } capacity { installedPv }
+} }"""
+
+LIFECYCLE: Final = """
+query SystemLifecycle($id: Int!) { facility(where: {id: {equals: $id}}) {
   lifeCycle { current { stage updatedAt } }
+} }"""
+
+STATE: Final = """
+query SystemState($id: Int!) { facility(where: {id: {equals: $id}}) {
   systemState { active { state createdAt updatedAt } }
+} }"""
+
+CONTROLLER: Final = """
+query SystemController($id: Int!) { facility(where: {id: {equals: $id}}) {
   singleBoardComputer { productId generation version lastSeenAt
     versionChangeLog { fromVersion toVersion updatedAt } }
 } }"""
@@ -103,9 +119,23 @@ query SystemGrid($id: Int!) { facility(where: {id: {equals: $id}}) {
   }
 } }"""
 
+# On a system whose latestGridData is empty (an ESO 15 on OS 7 was), the
+# voltage and current per phase come from the stream the app's phase
+# balancing view listens to; one event is read, and the stream closed.
+PHASE_BALANCE: Final = """
+subscription PhaseBalancingStream($facilityId: FacilityID!) { newPhaseBalanceData(facilityId: $facilityId) {
+  facilityId timestamp
+  phase1 { gridVoltage result beforeCorrection correction }
+  phase2 { gridVoltage result beforeCorrection correction }
+  phase3 { gridVoltage result beforeCorrection correction }
+} }"""
+
 #: The parts read every SLOW_INTERVAL_S, by name.
 PARTS: Final[dict[str, str]] = {
     "basics": BASICS,
+    "lifecycle": LIFECYCLE,
+    "state": STATE,
+    "controller": CONTROLLER,
     "topology": TOPOLOGY,
     "alarms": ALARMS,
     "batteries": BATTERIES,
@@ -136,6 +166,12 @@ def part_variables(name: str, facility_id: int, now: dt.datetime) -> dict[str, A
 
 def _facility(answer: Mapping[str, Any] | None) -> dict[str, Any]:
     return dict(((answer or {}).get("facility")) or {})
+
+
+def _round(value: Any, digits: int) -> float | None:
+    """Ferroamp sends floats as 6.400001525878906; the values are tenths."""
+    number = _float(value)
+    return None if number is None else round(number, digits)
 
 
 def _iso(value: dt.datetime | None) -> str | None:
@@ -296,11 +332,13 @@ def parse_system(answers: Mapping[str, Mapping[str, Any] | None]) -> SystemInfo:
     """Build SystemInfo from the parts' data, by part name. A missing or empty
     part leaves its values None."""
     basics = _facility(answers.get("basics"))
+    sbc = (_facility(answers.get("controller")).get("singleBoardComputer")) or {}
+    active = ((_facility(answers.get("state")).get("systemState") or {}).get("active")) or {}
+    lifecycle = ((_facility(answers.get("lifecycle")).get("lifeCycle") or {}).get("current")) or {}
     topology = (_facility(answers.get("topology")).get("topology")) or {}
     info: dict[str, Any] = {"raw": {k: v for k, v in answers.items() if v is not None}}
 
-    if basics:
-        sbc = basics.get("singleBoardComputer") or {}
+    if basics or sbc:
         changes = sorted(sbc.get("versionChangeLog") or [], key=lambda c: c.get("updatedAt") or "")
         last = changes[-1] if changes else {}
         info["software"] = Software(
@@ -312,12 +350,14 @@ def parse_system(answers: Mapping[str, Mapping[str, Any] | None]) -> SystemInfo:
             last_update_at=parse_time(last.get("updatedAt")),
             hostname=basics.get("hostname"),
         )
-        active = (basics.get("systemState") or {}).get("active") or {}
-        info["state"] = active.get("state")
-        info["state_since"] = parse_time(active.get("createdAt"))
-        info["lifecycle"] = ((basics.get("lifeCycle") or {}).get("current") or {}).get("stage")
+    if basics:
         info["installed_on"] = parse_time(basics.get("installedOn"))
         info["installed_pv"] = _float((basics.get("capacity") or {}).get("installedPv"))
+    if active:
+        info["state"] = active.get("state")
+        info["state_since"] = parse_time(active.get("createdAt"))
+    if lifecycle:
+        info["lifecycle"] = lifecycle.get("stage")
 
     if topology:
         system = topology.get("system") or {}
@@ -358,10 +398,10 @@ def parse_system(answers: Mapping[str, Mapping[str, Any] | None]) -> SystemInfo:
                 soh=_float(log.get("stateOfHealth")),
                 voltage_v=_float(log.get("batteryVoltage")),
                 current_a=_float(log.get("batteryCurrent")),
-                cell_temp_min_c=_float(log.get("cellTemperatureMin")),
-                cell_temp_max_c=_float(log.get("cellTemperatureMax")),
-                cell_voltage_min_v=_float(log.get("cellVoltageMin")),
-                cell_voltage_max_v=_float(log.get("cellVoltageMax")),
+                cell_temp_min_c=_round(log.get("cellTemperatureMin"), 1),
+                cell_temp_max_c=_round(log.get("cellTemperatureMax"), 1),
+                cell_voltage_min_v=_round(log.get("cellVoltageMin"), 3),
+                cell_voltage_max_v=_round(log.get("cellVoltageMax"), 3),
                 updated_at=parse_time(log.get("updatedAt") or state.get("updatedAt")),
             ))
         info["batteries"] = tuple(found)
@@ -463,6 +503,35 @@ def _ace(data: Mapping[str, Any], key: str) -> Phases:
     return tuple(_float((data.get(f"acePhase{n}") or {}).get(key)) for n in (1, 2, 3))  # type: ignore[return-value]
 
 
+def with_phase_balance(grid: Grid | None, event: Mapping[str, Any] | None, received_at: dt.datetime) -> Grid | None:
+    """``grid`` with the voltage, current and phase balancing per phase from
+    a newPhaseBalanceData event. ``result`` is the current at the connection
+    after phase balancing, so it is the grid current. The event's own
+    timestamp is used when it has one, else when it was received."""
+    data = (event or {}).get("newPhaseBalanceData") or {}
+    phases = [data.get(f"phase{n}") or {} for n in (1, 2, 3)]
+    if not any(phases):
+        return grid
+    base = grid or Grid()
+
+    def pick(key: str) -> Phases:
+        return tuple(_float(p.get(key)) for p in phases)  # type: ignore[return-value]
+
+    corrections = pick("correction")
+    return Grid(
+        measured_at=parse_time(data.get("timestamp")) or received_at,
+        voltage_v=pick("gridVoltage"),
+        current_a=pick("result"),
+        ace_active=any(abs(c) > 0.05 for c in corrections if c is not None) if None not in corrections else None,
+        ace_before_a=pick("beforeCorrection"),
+        ace_correction_a=corrections,
+        ace_result_a=pick("result"),
+        power_measured_at=base.power_measured_at,
+        grid_power_w=base.grid_power_w,
+        load_power_w=base.load_power_w,
+    )
+
+
 def parse_grid(answer: Mapping[str, Any] | None) -> Grid | None:
     """The grid per phase from the GRID query, or None without an answer."""
     measurements = _facility(answer).get("measurements") or {}
@@ -512,8 +581,8 @@ def battery_state(info: SystemInfo) -> str | None:
 
 
 def strings_running(info: SystemInfo) -> int | None:
-    """How many solar strings are running."""
-    if info.strings is None:
+    """How many solar strings are running; None for a system without any."""
+    if not info.strings:
         return None
     return sum(1 for s in info.strings if s.state == "RUNNING")
 

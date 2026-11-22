@@ -172,7 +172,7 @@ def _battery_state_attributes(data: CloudData) -> dict[str, Any] | None:
 
 def _strings_attributes(data: CloudData) -> dict[str, Any] | None:
     info = data.system
-    if info is None or info.strings is None:
+    if info is None or not info.strings:
         return None
     return {
         "total": len(info.strings),
@@ -301,7 +301,9 @@ SENSORS: tuple[CloudSensorDescription, ...] = (
     CloudSensorDescription(
         key="firmware_version",
         entity_category=EntityCategory.DIAGNOSTIC,
-        value=lambda d: _software(d).version if _software(d) else None,
+        # The version the regular read has, when the system's own part does not answer.
+        value=lambda d: (_software(d).version if _software(d) and _software(d).version
+                         else (_info(d).version if _info(d) else None)),
         attributes=_software_attributes,
     ),
     CloudSensorDescription(

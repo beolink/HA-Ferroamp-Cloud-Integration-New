@@ -12,6 +12,7 @@ import base64
 import datetime as dt
 import hashlib
 import html
+import json
 import re
 import secrets
 import urllib.parse
@@ -238,6 +239,21 @@ class GraphQLError(Exception):
             (e.get("extensions") or {}).get("code") in ("UNAUTHENTICATED", "FORBIDDEN")
             for e in self.errors
         )
+
+
+def json_loads(text: str) -> Any:
+    return json.loads(text)
+
+
+def error_messages(answer: dict) -> list[str]:
+    """Each GraphQL error as "path: message", for the diagnostics."""
+    out = []
+    for err in answer.get("errors") or []:
+        if not isinstance(err, dict):
+            continue
+        path = ".".join(str(p) for p in err.get("path") or [])
+        out.append(f"{path}: {err.get('message')}" if path else str(err.get("message")))
+    return out
 
 
 def data_of(answer: dict) -> dict:

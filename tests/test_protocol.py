@@ -255,3 +255,11 @@ def test_parse_facilities():
     ]})
     assert out[0] == {"id": 12345, "name": "Hus", "admin": True, "new_scheduler": True, "version": "8.0.1"}
     assert out[1]["name"] == "Ferroamp 7" and out[1]["admin"] is False
+
+
+def test_error_messages_carry_the_path():
+    answer = {"data": {"facility": None}, "errors": [
+        {"message": "Not authorised", "path": ["facility", "singleBoardComputer"]},
+        {"message": "Something else"}]}
+    assert protocol.error_messages(answer) == ["facility.singleBoardComputer: Not authorised", "Something else"]
+    assert protocol.data_of(answer) == {"facility": None}

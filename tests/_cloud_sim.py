@@ -37,9 +37,15 @@ SYSTEM_ANSWERS: dict[str, dict[str, Any]] = {
     "basics": {"facility": {
         "hostname": "eh-12345", "installedOn": "2026-10-15T00:00:00.000Z",
         "info": {"version": "8.0.1"}, "capacity": {"installedPv": None},
+    }},
+    "lifecycle": {"facility": {
         "lifeCycle": {"current": {"stage": "ACTIVE", "updatedAt": "2026-10-15T14:38:44.561Z"}},
+    }},
+    "state": {"facility": {
         "systemState": {"active": {"state": "RUNNING", "createdAt": "2026-11-22T18:56:40.000Z",
                                    "updatedAt": None}},
+    }},
+    "controller": {"facility": {
         "singleBoardComputer": {"productId": "SBC1", "generation": "CORE", "version": "8.0.1",
                                 "lastSeenAt": "2026-11-22T19:00:00.000Z", "versionChangeLog": [
                                     {"fromVersion": "7.1.2", "toVersion": "8.0.0", "updatedAt": "2026-10-19T09:00:00.000Z"},
@@ -104,6 +110,14 @@ SYSTEM_ANSWERS: dict[str, dict[str, Any]] = {
 
 # Per-phase power as in the official Cloud API's example: the Q set adds up to
 # the total (26.95 + 313.34 + 236.52 = 576.81), the D set does not.
+# One newPhaseBalanceData event, as the app's phase balancing view gets it.
+PHASE_BALANCE_EVENT: dict[str, Any] = {"newPhaseBalanceData": {
+    "facilityId": "12345", "timestamp": "2026-10-27T20:00:05.000Z",
+    "phase1": {"gridVoltage": 230.1, "result": 6.2, "beforeCorrection": 8.0, "correction": -1.8},
+    "phase2": {"gridVoltage": 231.4, "result": 6.0, "beforeCorrection": 4.1, "correction": 1.9},
+    "phase3": {"gridVoltage": 229.7, "result": 6.1, "beforeCorrection": 6.2, "correction": -0.1},
+}}
+
 GRID_ANSWER: dict[str, Any] = {"facility": {"measurements": {
     "latestGridData": {
         "timestamp": "2026-10-27T20:00:00.000Z", "u1": 231.2, "u2": 229.8, "u3": 232.4,

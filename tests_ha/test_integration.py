@@ -13,7 +13,7 @@ from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
-from _cloud_sim import GRID_ANSWER, SYSTEM_ANSWERS
+from _cloud_sim import GRID_ANSWER, PHASE_BALANCE_EVENT, SYSTEM_ANSWERS
 
 from custom_components.ferroamp_cloud_control import api, protocol, system
 from custom_components.ferroamp_cloud_control.const import DOMAIN
@@ -74,6 +74,14 @@ class FakeCloud:
     live_answer = live()
     fail_with: Exception | None = None
     rotate_to: str | None = None
+    grid_answer = GRID_ANSWER
+    stream_event: dict | None = None
+    refused_fields: dict = {}      # part name -> error text the cloud gives with null data
+    last_errors: list = []
+
+    async def subscribe_once(self, document, variables, wait_s=8.0):
+        assert document is system.PHASE_BALANCE and variables == {"facilityId": "12345"}
+        return copy.deepcopy(FakeCloud.stream_event)
 
     async def query(self, document, variables=None):
         if FakeCloud.fail_with is not None:
@@ -90,11 +98,15 @@ class FakeCloud:
             return copy.deepcopy(SLOW)
         if document is protocol.SCHEDULES:
             return {"facility": {"configuration": {"configurationSchedule": {"schedules": []}}}}
+        self.last_errors = []
         for name, part in system.PARTS.items():
             if document is part:
+                if name in FakeCloud.refused_fields:
+                    self.last_errors = [FakeCloud.refused_fields[name]]
+                    return {"facility": None}
                 return copy.deepcopy(SYSTEM_ANSWERS[name])
         if document is system.GRID:
-            return copy.deepcopy(GRID_ANSWER)
+            return copy.deepcopy(FakeCloud.grid_answer)
         raise AssertionError("unexpected document")
 
 
@@ -104,6 +116,9 @@ def fake_cloud(freezer):
     FakeCloud.live_answer = live()
     FakeCloud.fail_with = None
     FakeCloud.rotate_to = None
+    FakeCloud.grid_answer = GRID_ANSWER
+    FakeCloud.stream_event = None
+    FakeCloud.refused_fields = {}
     with patch("custom_components.ferroamp_cloud_control.FerroampCloud", FakeCloud), \
          patch("custom_components.ferroamp_cloud_control.config_flow.FerroampCloud", FakeCloud):
         yield
@@ -232,6 +247,31 @@ async def test_a_system_part_that_fails_leaves_the_rest(hass: HomeAssistant):
     assert set(diagnostics_errors) == {"alarms"}
     assert hass.states.get("sensor.ferroamp_grid_voltage_l1").state in ("unknown", "unavailable")
     assert hass.states.get("sensor.ferroamp_battery_power").state == "3570.0"
+
+
+async def test_a_refused_field_is_kept_for_the_diagnostics(hass: HomeAssistant):
+    FakeCloud.refused_fields = {"controller": "facility.singleBoardComputer: Not authorised"}
+    entry = entry_for(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    errors = entry.runtime_data.data.system.raw["errors"]
+    assert errors == {"controller": "facility.singleBoardComputer: Not authorised"}
+    firmware = hass.states.get("sensor.ferroamp_firmware_version")
+    assert firmware.state == "8.0.1" and firmware.attributes["controller_version"] is None
+
+
+async def test_without_grid_data_the_phase_balance_stream_gives_the_phases(hass: HomeAssistant, freezer):
+    FakeCloud.grid_answer = {"facility": {"measurements": {
+        "latestGridData": None, "latestPower": GRID_ANSWER["facility"]["measurements"]["latestPower"]}}}
+    event = copy.deepcopy(PHASE_BALANCE_EVENT)
+    event["newPhaseBalanceData"]["timestamp"] = "2026-10-27T15:34:58.000Z"
+    FakeCloud.stream_event = event
+    entry = entry_for(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.ferroamp_grid_voltage_l2").state == "231.4"
+    assert hass.states.get("sensor.ferroamp_grid_current_l1").state == "6.2"
+    assert hass.states.get("binary_sensor.ferroamp_phase_balancing_active").state == "on"
 
 
 async def test_stale_power_goes_unavailable(hass: HomeAssistant, freezer):

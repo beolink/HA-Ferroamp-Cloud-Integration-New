@@ -6,7 +6,7 @@ import copy
 import datetime as dt
 
 from custom_components.ferroamp_cloud_control import system
-from _cloud_sim import GRID_ANSWER, SYSTEM_ANSWERS
+from _cloud_sim import GRID_ANSWER, PHASE_BALANCE_EVENT, SYSTEM_ANSWERS
 
 
 def answers(**changes):
@@ -161,3 +161,45 @@ def test_part_variables():
     assert system.part_variables("prices", 7, now)["period"] == {"day": {"gte": "2026-11-22", "lte": "2026-11-23"}}
     assert system.part_variables("forecast", 7, now)["range"] == {
         "gte": "2026-11-22T22:00:00.000Z", "lt": "2026-11-24T10:00:00.000Z"}
+
+
+def test_the_basics_come_from_their_own_parts():
+    # The state and the control computer refused, as the account may not read
+    # them: the version and the host name still come from the basics.
+    info = system.parse_system(answers(state={"facility": None}, controller={"facility": None}))
+    assert info.software.version == "8.0.1" and info.software.controller_version is None
+    assert info.state is None and info.lifecycle == "ACTIVE"
+    # Only the control computer: its version, no system version.
+    only = system.parse_system({"controller": SYSTEM_ANSWERS["controller"]})
+    assert only.software.version is None and only.software.controller_version == "8.0.1"
+
+
+def test_cell_values_are_rounded_to_what_they_are():
+    found = answers()
+    log = found["batteries"]["facility"]["batteries"][0]["log"]["current"]
+    log["cellTemperatureMin"], log["cellVoltageMax"] = 6.400001525878906, 3.289000272750854
+    (battery,) = system.parse_system(found).batteries
+    assert battery.cell_temp_min_c == 6.4 and battery.cell_voltage_max_v == 3.289
+
+
+def test_no_strings_is_unknown_not_none_running():
+    info = system.parse_system(answers(strings={"facility": {"ssos": []}}))
+    assert info.strings == () and system.strings_running(info) is None
+
+
+def test_the_phase_balance_stream_fills_in_the_grid():
+    received = dt.datetime(2026, 10, 27, 20, 0, 6, tzinfo=dt.UTC)
+    empty_grid = system.parse_grid({"facility": {"measurements": {
+        "latestGridData": None, "latestPower": GRID_ANSWER["facility"]["measurements"]["latestPower"]}}})
+    assert empty_grid.measured_at is None
+    grid = system.with_phase_balance(empty_grid, PHASE_BALANCE_EVENT, received)
+    assert grid.voltage_v == (230.1, 231.4, 229.7)
+    assert grid.current_a == (6.2, 6.0, 6.1)
+    assert grid.ace_correction_a == (-1.8, 1.9, -0.1) and grid.ace_active is True
+    assert grid.measured_at == dt.datetime(2026, 10, 27, 20, 0, 5, tzinfo=dt.UTC)
+    assert grid.grid_power_w == (26.95, 313.34, 236.52)   # the power per phase stays
+    # No grid read at all, and an event without a time: the time it came.
+    event = {"newPhaseBalanceData": {**PHASE_BALANCE_EVENT["newPhaseBalanceData"], "timestamp": None}}
+    assert system.with_phase_balance(None, event, received).measured_at == received
+    # An empty event changes nothing.
+    assert system.with_phase_balance(empty_grid, {"newPhaseBalanceData": None}, received) is empty_grid

@@ -104,6 +104,9 @@ class FerroampCloud:
         self._access_token: str | None = None
         self._expires_at = 0.0
         self._lock = asyncio.Lock()
+        #: The errors of the latest query whose answer still carried data (a
+        #: field the account may not read comes back null, with an error).
+        self.last_errors: list[str] = []
 
     @property
     def refresh_token(self) -> str:
@@ -157,6 +160,7 @@ class FerroampCloud:
                     answer = await resp.json(content_type=None)
             except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as err:
                 raise CloudError(f"API unreachable: {err}") from err
+            self.last_errors = protocol.error_messages(answer)
             try:
                 return protocol.data_of(answer)
             except protocol.GraphQLError as err:
@@ -166,3 +170,36 @@ class FerroampCloud:
                     raise AuthError(str(err)) from err
                 raise CloudError(str(err)) from err
         raise CloudError("unreachable")  # pragma: no cover - the loop returns or raises
+
+    async def subscribe_once(self, document: str, variables: dict[str, Any], wait_s: float = 8.0) -> dict | None:
+        """The first event of a subscription on the server-sent event stream,
+        as the app listens to it, or None when none comes within ``wait_s``.
+        The stream is closed again right away."""
+        token = await self._ensure_token()
+        try:
+            async with self._session.post(
+                self._graphql_url + "/stream",
+                json={"query": document, "variables": variables},
+                headers={"Authorization": f"Bearer {token}", "User-Agent": USER_AGENT,
+                         "Accept": "text/event-stream"},
+                timeout=aiohttp.ClientTimeout(total=wait_s + 5, sock_read=wait_s),
+            ) as resp:
+                if resp.status != 200:
+                    raise CloudError(f"stream answered {resp.status}")
+                deadline = time.monotonic() + wait_s
+                while time.monotonic() < deadline:
+                    line = await resp.content.readline()
+                    if not line:
+                        return None
+                    text = line.decode(errors="replace").strip()
+                    if text.startswith("data:"):
+                        try:
+                            event = protocol.json_loads(text[5:].strip())
+                        except ValueError:
+                            continue
+                        return protocol.data_of(event)
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            raise CloudError(f"stream unreachable: {err}") from err
+        except protocol.GraphQLError as err:
+            raise CloudError(str(err)) from err
+        return None

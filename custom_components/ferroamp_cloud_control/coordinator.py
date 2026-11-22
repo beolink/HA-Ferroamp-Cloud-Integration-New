@@ -62,6 +62,7 @@ class FerroampCloudCoordinator(DataUpdateCoordinator[CloudData]):
         # part the cloud does not have costs one request per ten minutes, not
         # one per poll.
         self._grid_retry_at = 0.0
+        self._stream_retry_at = 0.0
 
     @callback
     def store_refresh_token(self, token: str) -> None:
@@ -169,6 +170,9 @@ class FerroampCloudCoordinator(DataUpdateCoordinator[CloudData]):
             try:
                 answers[name] = await self.client.query(
                     document, system.part_variables(name, self.facility_id, now))
+                partial = getattr(self.client, "last_errors", None)
+                if partial:
+                    errors[name] = "; ".join(partial)
             except CloudError as err:
                 _LOGGER.debug("System part %s not read: %s", name, err)
                 errors[name] = str(err)
@@ -184,4 +188,23 @@ class FerroampCloudCoordinator(DataUpdateCoordinator[CloudData]):
             _LOGGER.debug("Grid per phase not read: %s", err)
             self._grid_retry_at = time.monotonic() + SLOW_INTERVAL_S
             return previous
+        if grid is None or grid.measured_at is None:
+            grid = await self._read_phase_balance(grid)
         return grid if grid is not None else previous
+
+    async def _read_phase_balance(self, grid: system.Grid | None) -> system.Grid | None:
+        """Voltage and current per phase from the app's phase balancing
+        stream, for a system whose latestGridData is empty. Without an event,
+        the stream is left alone for SLOW_INTERVAL_S."""
+        if time.monotonic() < self._stream_retry_at:
+            return grid
+        try:
+            event = await self.client.subscribe_once(
+                system.PHASE_BALANCE, {"facilityId": str(self.facility_id)})
+        except CloudError as err:
+            _LOGGER.debug("Phase balancing stream not read: %s", err)
+            event = None
+        if event is None:
+            self._stream_retry_at = time.monotonic() + SLOW_INTERVAL_S
+            return grid
+        return system.with_phase_balance(grid, event, dt_util.utcnow())

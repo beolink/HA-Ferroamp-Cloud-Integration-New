@@ -117,7 +117,12 @@ facility(where: {id: {equals: $facilityId}}) {
 ### The system itself (0.5)
 
 The app's system pages read these fields of `facility` (`system.py` holds the
-queries; each is asked on its own, so one the server refuses leaves the rest):
+queries; each is asked on its own, so one the server refuses leaves the rest).
+On an ESO 15 system on OS 7 (2026-11-22) the basics asked together came back
+as `facility: null`, so they are four parts: the basics, `lifeCycle`,
+`systemState` and `singleBoardComputer` (the user app never asks for
+`systemState` or `versionChangeLog`, and asks for `singleBoardComputer` only
+in the installer's views):
 
 - `hostname`, `installedOn`, `info { version }`, `lifeCycle { current { stage } }`,
   `systemState { active { state createdAt } }` and
@@ -132,13 +137,21 @@ queries; each is asked on its own, so one the server refuses leaves the rest):
   `SSO_OFFLINE`.
 - `batteries { manufacturer attributes { ratedCapacity ratedPower } state { current { primary secondary } } log { current { stateOfHealth batteryVoltage batteryCurrent cellTemperatureMin cellTemperatureMax cellVoltageMin cellVoltageMax } } }`:
   per battery. `secondary` lists reasons such as `BAT_SOC_POWER_DERATING`.
-  `ratedCapacity` is taken to be Wh, as in the official Cloud API's
-  example; not yet confirmed on a live system.
+  `ratedCapacity` is in Wh (27 500 on a 27.5 kWh system, 2026-11-22). The
+  cell temperatures and voltages matched the battery's own BMS, read locally
+  at the same time.
 - `ssos { displayName enabled generation attributes { powerRating } state { active { primary secondary } } }`:
   the solar string optimisers.
 - `measurements { latestGridData { timestamp u1 u2 u3 iExtRms1 iExtRms2 iExtRms3 aceActive acePhase1..3 { beforeCorrection correction result } } }`:
   the grid per phase (V and A), whether phase balancing works right now and
   its correction per phase (the app's PhaseBalancingStream shows the same).
+- On that ESO 15 system `latestGridData` was empty and the per-phase fields
+  of `latestPower` null. The voltage and current per phase come from the
+  stream the app's phase balancing view listens to instead:
+  `subscription { newPhaseBalanceData(facilityId) { timestamp phase1..3 { gridVoltage result beforeCorrection correction } } }`
+  on `/graphql/stream`; `result` is the current at the connection after
+  phase balancing. The subscriptions are not in the introspection of
+  `/graphql`, so this shape is the app's own, not the schema's.
 - `measurements { latestPower { gridPower loadPower pExtD1..3 pExtQ1..3 pLoadD1..3 pLoadQ1..3 } }`:
   power per phase. There are two sets per phase; in the official Cloud API's
   example the `Q` set adds up to the total, so the driver takes `Q` unless

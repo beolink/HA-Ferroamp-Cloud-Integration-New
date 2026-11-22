@@ -53,6 +53,26 @@ What the Ferroamp app shows about the system itself, read from the same cloud:
 system's cloud data fills in, the unit of the spot price, which of the two
 power series per phase adds up, and the battery's rated capacity unit.
 
+0.5.0-beta.2, after beta.1 on an ESO 15 system on OS 7:
+
+- The basics are four parts (the basics, the life cycle, the system's state,
+  the control computer): on that system one field of them made the cloud
+  answer the whole part with nothing. The software version falls back to the
+  one the regular read has.
+- A part the cloud answers in part keeps its errors (which field, why) in the
+  diagnostics download; they used to be dropped.
+- Voltage and current per phase come from the stream the app's phase
+  balancing view listens to (one event per poll), on a system whose grid
+  data in the regular API is empty, as it was on that system. Without an
+  event the stream is left alone for ten minutes.
+- Cell temperatures and voltages are rounded to what they are (6.4 °C, not
+  6.400001525878906).
+- A system without solar strings shows the strings as unknown, not as 0 of 0.
+- Confirmed on that system: the battery's rated capacity is in Wh (27 500 for
+  27.5 kWh), the cell values match the battery's own BMS read locally, and
+  the spot price comes per quarter hour. FerroAI's forecast is empty while
+  FerroAI is off.
+
 ## 0.4.1 (2026-11-22)
 
 - A command's manual schedule keeps the owner's phase balancing limit. It kept

@@ -27,7 +27,10 @@ class FakeCloud:
         self.app.router.add_post("/oidc/authenticate", self.authenticate)
         self.app.router.add_post("/oidc/token", self.token)
         self.app.router.add_post("/graphql", self.graphql)
+        self.app.router.add_post("/graphql/stream", self.stream)
         self.server = TestServer(self.app)
+        self.stream_lines: list[str] = []
+        self.partial_errors: list[dict] = []
 
     def url(self, path: str) -> str:
         return str(self.server.make_url(path))
@@ -72,7 +75,23 @@ class FakeCloud:
             return web.json_response({"errors": [{"message": "Unauthorized",
                                                   "extensions": {"code": "UNAUTHENTICATED"}}]})
         body = await request.json()
-        return web.json_response({"data": {"echo": body["variables"]}})
+        answer = {"data": {"echo": body["variables"]}}
+        if self.partial_errors:
+            answer["errors"] = self.partial_errors
+        return web.json_response(answer)
+
+    async def stream(self, request: web.Request) -> web.StreamResponse:
+        assert request.headers["Accept"] == "text/event-stream"
+        token = request.headers.get("Authorization", "").removeprefix("Bearer ")
+        if token not in self.valid_access:
+            return web.Response(status=401)
+        resp = web.StreamResponse(headers={"Content-Type": "text/event-stream"})
+        await resp.prepare(request)
+        for line in self.stream_lines:
+            await resp.write((line + "\n").encode())
+        if not self.stream_lines:
+            await asyncio.sleep(2)   # a stream that never sends anything
+        return resp
 
 
 def run(coro_fn):
@@ -151,3 +170,45 @@ def test_an_unreachable_cloud_is_a_cloud_error():
             with pytest.raises(api.CloudError):
                 await client.query("query { x }")
     run(go)
+
+
+def test_a_partial_answer_keeps_its_errors():
+    async def go(cloud):
+        cloud.partial_errors = [{"message": "Not authorised", "path": ["facility", "singleBoardComputer"]}]
+        async with aiohttp.ClientSession() as session:
+            client = api.FerroampCloud(session, "offline-1",
+                                       auth_base=cloud.url("/oidc"), graphql_url=cloud.url("/graphql"))
+            data = await client.query("query { x }", {"n": 1})
+            first = list(client.last_errors)
+            cloud.partial_errors = []
+            await client.query("query { x }")
+        return data, first, client.last_errors
+    data, first, after = run(go)
+    assert data == {"echo": {"n": 1}}
+    assert first == ["facility.singleBoardComputer: Not authorised"] and after == []
+
+
+def test_subscribe_once_returns_the_first_event_and_closes():
+    async def go(cloud):
+        cloud.stream_lines = [": keep-alive", "", 'data: {"data": {"newPhaseBalanceData": {"phase1": {"result": 6.2}}}}',
+                              "", 'data: {"data": {"newPhaseBalanceData": {"phase1": {"result": 9.9}}}}']
+        async with aiohttp.ClientSession() as session:
+            client = api.FerroampCloud(session, "offline-1",
+                                       auth_base=cloud.url("/oidc"), graphql_url=cloud.url("/graphql"))
+            return await client.subscribe_once("subscription { x }", {"facilityId": "1"}, wait_s=2)
+    assert run(go) == {"newPhaseBalanceData": {"phase1": {"result": 6.2}}}
+
+
+def test_subscribe_once_without_an_event_is_none():
+    async def go(cloud):
+        async with aiohttp.ClientSession() as session:
+            client = api.FerroampCloud(session, "offline-1",
+                                       auth_base=cloud.url("/oidc"), graphql_url=cloud.url("/graphql"))
+            try:
+                return await client.subscribe_once("subscription { x }", {"facilityId": "1"}, wait_s=0.5)
+            except api.CloudError as err:
+                return f"error: {err}"
+    # A quiet stream times out on its read; either way the coordinator leaves
+    # the stream alone for a while.
+    outcome = run(go)
+    assert outcome is None or outcome.startswith("error: stream unreachable"), outcome
