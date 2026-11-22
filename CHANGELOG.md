@@ -1,12 +1,13 @@
 # Changelog
 
-## 0.5.0 (unreleased)
+## 0.5.0 (2026-11-22)
 
 What the Ferroamp app shows about the system itself, read from the same cloud:
 
 - Software: `sensor.ferroamp_firmware_version` (the system's EnergyHub OS), with
-  the control computer's version and generation, the latest update (from, to,
-  when) and the host name as attributes.
+  the host name as an attribute, and the control computer's version and
+  latest update where the account may read them (the app's own account may
+  not).
 - State and alarms: `sensor.ferroamp_system_state` (running, idle, degraded,
   fault, offline) with since when, the life cycle, the main fuse, the number of
   phases, the inverters' rated power and the ESO generation as attributes, and
@@ -14,21 +15,27 @@ What the Ferroamp app shows about the system itself, read from the same cloud:
   code, product and start as an attribute.
 - The grid per phase: voltage and current on L1, L2 and L3, and
   `binary_sensor.ferroamp_phase_balancing_active`, whether phase balancing
-  (ACE) is working right now. Read on every poll.
+  (ACE) is working right now. Read on every poll; on a system whose grid data
+  is empty in the regular API (OS 7), from the phase balancing stream the app
+  listens to.
 - The battery: health (SoH, the weakest battery's), state with Ferroamp's
   reasons (such as power derating at a high or low charge), the highest and
   lowest cell temperature, and as attributes the manufacturer, the lowest and
   highest cell voltage and the battery's voltage and current.
 - The solar strings: `sensor.ferroamp_solar_strings`, how many of them are
-  running, with each string's name, state and rated power as an attribute.
+  running, with each string's name and state as an attribute, listed the way
+  the app lists them; where the cloud gives no state, a string counts as
+  running unless an alarm says it is offline.
 - Power per phase: the grid's (`sensor.ferroamp_grid_power_l1` to `_l3`, + =
   import) and the house's consumption (`sensor.ferroamp_consumption_power_l1`
-  to `_l3`), read on every poll with the grid's voltage and current. Phase
+  to `_l3`), read on every poll with the grid's voltage and current, where
+  the system's cloud data has them (not on OS 7 so far). Phase
   balancing's correction per phase is an attribute of
   `binary_sensor.ferroamp_phase_balancing_active`.
 - FerroAI and the price: `sensor.ferroamp_spot_price`, the spot price the
-  system is optimised against, in the app's currency per kWh, with today's
-  and tomorrow's prices as an attribute; `sensor.ferroamp_forecast_soc`,
+  system is optimised against: Nord Pool's price for the bidding zone without
+  VAT, per kWh and quarter hour, with today's and tomorrow's prices as an
+  attribute; `sensor.ferroamp_forecast_soc`,
   FerroAI's forecast of the state of charge for this hour, with the whole
   forecast (state of charge, solar and consumption, hour by hour about a day
   and a half ahead) as an attribute; FerroAI's settings (variant, grid tariff,
@@ -48,6 +55,11 @@ What the Ferroamp app shows about the system itself, read from the same cloud:
   cloud does not answer leaves its values as they were and the rest is read as
   usual. The diagnostics download carries every part as the cloud answered it,
   and the error of each part the cloud refused.
+
+### The betas
+
+Five betas checked the new values on an ESO 15 system on OS 7 and on a
+system with OS 6.1.3, beside the local MQTT ExtAPI and the battery's own BMS.
 
 0.5.0-beta.1 is for checking the new values on live systems: which of them a
 system's cloud data fills in, the unit of the spot price, which of the two
