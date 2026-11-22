@@ -33,8 +33,10 @@ from .const import (
     CONF_PREFIX,
     CONF_REFRESH_TOKEN,
     CONF_SCAN_INTERVAL,
+    CONF_SHOW_PAGE,
     DEFAULT_PREFIX,
     DEFAULT_SCAN_INTERVAL_S,
+    DEFAULT_SHOW_PAGE,
     DOMAIN,
     MIN_SCAN_INTERVAL_S,
 )
@@ -151,12 +153,19 @@ class FerroampCloudConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class FerroampCloudOptionsFlow(OptionsFlow):
+    """Two things to do: change the settings, or build the Ferroamp page anew."""
+
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        return self.async_show_menu(step_id="init", menu_options=["settings", "rebuild_page"])
+
+    async def async_step_settings(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
-            return self.async_create_entry(data=user_input)
+            # A changed option reloads the entry (__init__.py), and the
+            # reload shows or hides the page.
+            return self.async_create_entry(data={**self.config_entry.options, **user_input})
         cur = {**self.config_entry.data, **self.config_entry.options}
         return self.async_show_form(
-            step_id="init",
+            step_id="settings",
             data_schema=vol.Schema({
                 vol.Required(
                     CONF_SCAN_INTERVAL,
@@ -164,5 +173,24 @@ class FerroampCloudOptionsFlow(OptionsFlow):
                 ): NumberSelector(NumberSelectorConfig(
                     min=MIN_SCAN_INTERVAL_S, max=300, step=5,
                     mode=NumberSelectorMode.BOX, unit_of_measurement="s")),
+                vol.Required(
+                    CONF_SHOW_PAGE, default=bool(cur.get(CONF_SHOW_PAGE, DEFAULT_SHOW_PAGE)),
+                ): bool,
             }),
         )
+
+    async def async_step_rebuild_page(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Take the page out and put it back, with a new address for its cards
+        so every browser loads them afresh. Imported here: page.py pulls in
+        Home Assistant's frontend, which the pure tests do without."""
+        from homeassistant.loader import async_get_integration
+
+        from . import page
+
+        if user_input is not None:
+            if not page.page_wanted(self.hass):
+                return self.async_abort(reason="page_hidden")
+            integration = await async_get_integration(self.hass, DOMAIN)
+            await page.async_rebuild(self.hass, str(integration.version))
+            return self.async_abort(reason="page_rebuilt")
+        return self.async_show_form(step_id="rebuild_page", data_schema=vol.Schema({}))

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.1 (2026-11-22)
+
+- A command's manual schedule keeps the owner's phase balancing limit. It kept
+  whether phase balancing (ACE) was on but sent its limit as 0 A, so while a
+  command stood the system ran with phase balancing on and a limit of 0 A instead
+  of the owner's (15 A on the facility it was seen on).
+- The options are a menu: Settings, with the poll interval and a new switch for
+  whether the system is on the Ferroamp page (on by default; off takes the page
+  out of the sidebar when no system is left on it), and Build the Ferroamp page
+  anew, which takes the page out of the sidebar and puts it back, with a new
+  address for its cards so that every browser loads them afresh.
+
 ## 0.4.0 (2026-11-22)
 
 A page of its own in the sidebar, Ferroamp, in the manner of CTC Local Easyconf's:

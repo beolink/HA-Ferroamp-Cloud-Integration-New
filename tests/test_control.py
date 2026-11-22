@@ -96,10 +96,20 @@ def test_a_charge_is_a_manual_schedule_then_a_return_to_the_owners_configuration
     assert config["systemSettingsBattery"]["powerRefCharge"] == 2000
     assert config["systemSettingsBattery"]["powerRefDischarge"] == 0
     assert config["systemSettingsBattery"]["socRefLow"] == 10 and config["systemSettingsBattery"]["socRefHigh"] == 100
-    # PV and phase balancing stay as the owner has them.
+    # PV and phase balancing stay as the owner has them, the limit included
+    # (it was sent as 0 A until 0.4.1).
     assert config["systemSettingsPv"] == {"pvMode": True}
     assert config["systemSettingsGrid"]["aceMode"] is True
+    assert config["systemSettingsGrid"]["aceThreshold"] == 15
     assert plan.removes == () and plan.target == control.Target(charge_w=2000, discharge_w=0)
+
+
+def test_the_manual_schedule_keeps_whatever_phase_balancing_the_owner_has():
+    for ace_on, limit in ((True, 10.0), (False, 25.0)):
+        normal = protocol.config_input({**NORMAL, "systemSettingsGrid": {
+            **NORMAL["systemSettingsGrid"], "aceMode": ace_on, "aceThreshold": limit}})
+        grid = protocol.manual_config_input(normal, 0, 500)["systemSettingsGrid"]
+        assert (grid["aceMode"], grid["aceThreshold"]) == (ace_on, limit)
 
 
 def test_a_discharge_is_the_other_reference():

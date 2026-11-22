@@ -594,14 +594,15 @@ def config_input(raw: dict | None) -> dict | None:
 def manual_config_input(normal: dict, charge_w: int, discharge_w: int) -> dict:
     """The battery held at one reference: charging at ``charge_w`` or
     discharging at ``discharge_w``, the other 0 (PROTOCOL.md). PV and phase
-    balancing stay as the owner has them; the rest is what the app writes
-    for a manual schedule."""
+    balancing stay as the owner has them, the phase balancing limit included
+    (until 0.4.1 it was sent as 0 A, with phase balancing on); the rest is
+    what the app writes for a manual schedule."""
     return {
         "systemMode": MANUAL_MODE,
         "systemSettingsPv": {"pvMode": normal["systemSettingsPv"]["pvMode"]},
         "systemSettingsGrid": {
             "aceMode": normal["systemSettingsGrid"]["aceMode"],
-            "aceThreshold": 0,
+            "aceThreshold": normal["systemSettingsGrid"]["aceThreshold"],
             "limitExport": False,
             "limitImport": False,
             "powerThresholdHigh": 0,

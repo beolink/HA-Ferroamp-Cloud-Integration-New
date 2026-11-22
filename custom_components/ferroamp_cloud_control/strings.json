@@ -40,44 +40,112 @@
     "step": {
       "init": {
         "title": "Ferroamp Cloud Control",
-        "data": {
-          "scan_interval": "Poll interval"
+        "menu_options": {
+          "settings": "Settings",
+          "rebuild_page": "Build the Ferroamp page anew"
         }
+      },
+      "settings": {
+        "title": "Settings",
+        "data": {
+          "scan_interval": "Poll interval",
+          "show_page": "Show the Ferroamp page in the sidebar"
+        },
+        "data_description": {
+          "scan_interval": "How often power, the state of charge and the configuration in force are read from Ferroamp's cloud. Schedules and today's energy are read every ten minutes whatever this says.",
+          "show_page": "The page with every value and an explanation for each. Off takes this system off the page, and the page out of the sidebar when no system is left on it."
+        }
+      },
+      "rebuild_page": {
+        "title": "Build the Ferroamp page anew",
+        "description": "Takes the page out of the sidebar and puts it back, with a new address for its cards so that every browser loads them afresh. Useful after an update, or when the page looks wrong. Nothing about the system changes. A browser with the page open may need to be reloaded once."
       }
+    },
+    "abort": {
+      "page_rebuilt": "The Ferroamp page has been built anew. Reload the browser once if it still looks the same.",
+      "page_hidden": "The page is switched off for every system, so there is nothing to build. Switch it on under Settings first."
     }
   },
   "entity": {
     "sensor": {
-      "soc": { "name": "State of charge" },
-      "battery_power": { "name": "Battery power" },
-      "grid_power": { "name": "Grid power" },
-      "solar_power": { "name": "Solar power" },
-      "consumption_power": { "name": "Consumption power" },
-      "battery_capacity": { "name": "Battery capacity" },
-      "max_charge_power": { "name": "Battery rated power" },
-      "solar_energy_today": { "name": "Solar energy today" },
-      "consumption_energy_today": { "name": "Consumption energy today" },
-      "grid_import_energy_today": { "name": "Grid import today" },
-      "grid_export_energy_today": { "name": "Grid export today" },
-      "battery_charged_energy_today": { "name": "Battery charged today" },
-      "battery_discharged_energy_today": { "name": "Battery discharged today" },
-      "system_mode": { "name": "System mode" },
-      "active_schedule": { "name": "Active schedule" },
-      "ferroai_action": { "name": "FerroAI action" },
-      "last_seen": { "name": "Last seen" },
-      "last_command": { "name": "Last command" }
+      "soc": {
+        "name": "State of charge"
+      },
+      "battery_power": {
+        "name": "Battery power"
+      },
+      "grid_power": {
+        "name": "Grid power"
+      },
+      "solar_power": {
+        "name": "Solar power"
+      },
+      "consumption_power": {
+        "name": "Consumption power"
+      },
+      "battery_capacity": {
+        "name": "Battery capacity"
+      },
+      "max_charge_power": {
+        "name": "Battery rated power"
+      },
+      "solar_energy_today": {
+        "name": "Solar energy today"
+      },
+      "consumption_energy_today": {
+        "name": "Consumption energy today"
+      },
+      "grid_import_energy_today": {
+        "name": "Grid import today"
+      },
+      "grid_export_energy_today": {
+        "name": "Grid export today"
+      },
+      "battery_charged_energy_today": {
+        "name": "Battery charged today"
+      },
+      "battery_discharged_energy_today": {
+        "name": "Battery discharged today"
+      },
+      "system_mode": {
+        "name": "System mode"
+      },
+      "active_schedule": {
+        "name": "Active schedule"
+      },
+      "ferroai_action": {
+        "name": "FerroAI action"
+      },
+      "last_seen": {
+        "name": "Last seen"
+      },
+      "last_command": {
+        "name": "Last command"
+      }
     },
     "binary_sensor": {
-      "online": { "name": "Online" },
-      "ferroai": { "name": "FerroAI" },
-      "following": { "name": "Following" }
+      "online": {
+        "name": "Online"
+      },
+      "ferroai": {
+        "name": "FerroAI"
+      },
+      "following": {
+        "name": "Following"
+      }
     },
     "switch": {
-      "control_enabled": { "name": "Control enabled" }
+      "control_enabled": {
+        "name": "Control enabled"
+      }
     },
     "number": {
-      "battery_power_setpoint": { "name": "Battery power setpoint" },
-      "grid_power_limit": { "name": "Grid power limit" }
+      "battery_power_setpoint": {
+        "name": "Battery power setpoint"
+      },
+      "grid_power_limit": {
+        "name": "Grid power limit"
+      }
     },
     "select": {
       "mode": {

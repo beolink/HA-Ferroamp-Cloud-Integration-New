@@ -33,6 +33,11 @@ into Home Assistant's own dialog for the entity, where a control is changed. The
 page is built afresh each time it is opened, in Swedish on a Swedish Home
 Assistant and in English otherwise, and stores nothing.
 
+The integration's options (*Configure*) have a switch for whether the system is
+on the page, and *Build the Ferroamp page anew*, which takes the page out of the
+sidebar and puts it back with a new address for its cards, so that every
+browser loads them afresh after an update.
+
 ### Control
 
 On OS 7 and later the app does not command the battery directly; it lays out

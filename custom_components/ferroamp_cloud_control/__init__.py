@@ -12,12 +12,13 @@ and writes it as configuration schedules (control.py). Control is off until the 
 switches ``switch.{prefix}_control_enabled`` on.
 
 A page in the sidebar, Ferroamp (page.py), shows all of it with an explanation for
-every value and option.
+every value and option. Each system's options say whether it is on the page, and
+the options flow can build the page anew.
 """
 
 from __future__ import annotations
 
-from homeassistant.config_entries import ConfigEntry, ConfigEntryState
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -64,18 +65,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: FerroampCloudConfigEntry
     entry.async_on_unload(entry.add_update_listener(_options_changed))
 
     integration = await async_get_integration(hass, DOMAIN)
-    await page.async_register(hass, str(integration.version))
-    page.async_announce_change(hass)
+    await page.async_sync(hass, str(integration.version), starting=entry)
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: FerroampCloudConfigEntry) -> bool:
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
-        others = [e for e in hass.config_entries.async_entries(DOMAIN)
-                  if e.entry_id != entry.entry_id and e.state is ConfigEntryState.LOADED]
-        if others:
-            page.async_announce_change(hass)
-        else:
-            page.async_unregister(hass)
+        integration = await async_get_integration(hass, DOMAIN)
+        await page.async_sync(hass, str(integration.version), stopping=entry)
     return unloaded

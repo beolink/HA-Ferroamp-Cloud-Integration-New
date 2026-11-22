@@ -40,44 +40,112 @@
     "step": {
       "init": {
         "title": "Ferroamp Cloud Control",
-        "data": {
-          "scan_interval": "Avläsningsintervall"
+        "menu_options": {
+          "settings": "Inställningar",
+          "rebuild_page": "Bygg om Ferroamp-sidan"
         }
+      },
+      "settings": {
+        "title": "Inställningar",
+        "data": {
+          "scan_interval": "Avläsningsintervall",
+          "show_page": "Visa Ferroamp-sidan i sidomenyn"
+        },
+        "data_description": {
+          "scan_interval": "Hur ofta effekter, laddnivå och den inställning som gäller läses från Ferroamps moln. Scheman och dagens energi läses var tionde minut oavsett.",
+          "show_page": "Sidan med alla värden och en förklaring till vart och ett. Av tar bort den här anläggningen från sidan, och sidan ur sidomenyn när ingen anläggning finns kvar på den."
+        }
+      },
+      "rebuild_page": {
+        "title": "Bygg om Ferroamp-sidan",
+        "description": "Tar bort sidan ur sidomenyn och lägger tillbaka den, med en ny adress till korten så att varje webbläsare hämtar dem på nytt. Bra efter en uppdatering, eller när sidan ser fel ut. Inget i anläggningen ändras. En webbläsare som har sidan öppen kan behöva laddas om en gång."
       }
+    },
+    "abort": {
+      "page_rebuilt": "Ferroamp-sidan är ombyggd. Ladda om webbläsaren en gång om den ser likadan ut.",
+      "page_hidden": "Sidan är avstängd för alla anläggningar, så det finns inget att bygga. Slå på den under Inställningar först."
     }
   },
   "entity": {
     "sensor": {
-      "soc": { "name": "Laddnivå" },
-      "battery_power": { "name": "Batterieffekt" },
-      "grid_power": { "name": "Näteffekt" },
-      "solar_power": { "name": "Soleffekt" },
-      "consumption_power": { "name": "Förbrukning" },
-      "battery_capacity": { "name": "Batterikapacitet" },
-      "max_charge_power": { "name": "Batteriets märkeffekt" },
-      "solar_energy_today": { "name": "Solenergi i dag" },
-      "consumption_energy_today": { "name": "Förbrukning i dag" },
-      "grid_import_energy_today": { "name": "Köpt el i dag" },
-      "grid_export_energy_today": { "name": "Såld el i dag" },
-      "battery_charged_energy_today": { "name": "Laddat i dag" },
-      "battery_discharged_energy_today": { "name": "Urladdat i dag" },
-      "system_mode": { "name": "Driftläge" },
-      "active_schedule": { "name": "Aktivt schema" },
-      "ferroai_action": { "name": "FerroAI:s åtgärd" },
-      "last_seen": { "name": "Senast hörd" },
-      "last_command": { "name": "Senaste kommando" }
+      "soc": {
+        "name": "Laddnivå"
+      },
+      "battery_power": {
+        "name": "Batterieffekt"
+      },
+      "grid_power": {
+        "name": "Näteffekt"
+      },
+      "solar_power": {
+        "name": "Soleffekt"
+      },
+      "consumption_power": {
+        "name": "Förbrukning"
+      },
+      "battery_capacity": {
+        "name": "Batterikapacitet"
+      },
+      "max_charge_power": {
+        "name": "Batteriets märkeffekt"
+      },
+      "solar_energy_today": {
+        "name": "Solenergi i dag"
+      },
+      "consumption_energy_today": {
+        "name": "Förbrukning i dag"
+      },
+      "grid_import_energy_today": {
+        "name": "Köpt el i dag"
+      },
+      "grid_export_energy_today": {
+        "name": "Såld el i dag"
+      },
+      "battery_charged_energy_today": {
+        "name": "Laddat i dag"
+      },
+      "battery_discharged_energy_today": {
+        "name": "Urladdat i dag"
+      },
+      "system_mode": {
+        "name": "Driftläge"
+      },
+      "active_schedule": {
+        "name": "Aktivt schema"
+      },
+      "ferroai_action": {
+        "name": "FerroAI:s åtgärd"
+      },
+      "last_seen": {
+        "name": "Senast hörd"
+      },
+      "last_command": {
+        "name": "Senaste kommando"
+      }
     },
     "binary_sensor": {
-      "online": { "name": "Uppkopplad" },
-      "ferroai": { "name": "FerroAI" },
-      "following": { "name": "Följer styrningen" }
+      "online": {
+        "name": "Uppkopplad"
+      },
+      "ferroai": {
+        "name": "FerroAI"
+      },
+      "following": {
+        "name": "Följer styrningen"
+      }
     },
     "switch": {
-      "control_enabled": { "name": "Styrning aktiv" }
+      "control_enabled": {
+        "name": "Styrning aktiv"
+      }
     },
     "number": {
-      "battery_power_setpoint": { "name": "Batteriets effektbörvärde" },
-      "grid_power_limit": { "name": "Nätets effektgräns" }
+      "battery_power_setpoint": {
+        "name": "Batteriets effektbörvärde"
+      },
+      "grid_power_limit": {
+        "name": "Nätets effektgräns"
+      }
     },
     "select": {
       "mode": {

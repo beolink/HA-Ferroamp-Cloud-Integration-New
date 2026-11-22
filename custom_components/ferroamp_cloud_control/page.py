@@ -11,17 +11,23 @@ Home Assistant offers no public call for adding a dashboard from an integration,
 so the address is checked before use and a failure only means there is no page;
 it never touches the integration itself. Read only: nothing is written to disk,
 and an address that already holds a panel or a dashboard is left alone.
+
+Each system's options say whether it is on the page (CONF_SHOW_PAGE). The page is
+in the sidebar while at least one running system shows it, and the options flow
+can build it anew (async_rebuild): out of the sidebar and back, with a new address
+for the cards so that every browser loads them afresh.
 """
 
 from __future__ import annotations
 
 import logging
+import time
 from pathlib import Path
 from typing import Any
 
 from homeassistant.components import frontend
 from homeassistant.components.http import StaticPathConfig
-from homeassistant.config_entries import ConfigEntryState
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
@@ -29,7 +35,14 @@ from homeassistant.helpers.json import json_bytes, json_fragment
 
 from . import page_texts as texts
 from . import page_views as views
-from .const import CONF_FACILITY_ID, CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL_S, DOMAIN
+from .const import (
+    CONF_FACILITY_ID,
+    CONF_SCAN_INTERVAL,
+    CONF_SHOW_PAGE,
+    DEFAULT_SCAN_INTERVAL_S,
+    DEFAULT_SHOW_PAGE,
+    DOMAIN,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -46,14 +59,34 @@ def _lovelace_dashboards(hass: HomeAssistant) -> dict | None:
     return found if isinstance(found, dict) else None
 
 
+def shows_page(entry: ConfigEntry) -> bool:
+    """Whether this system is on the Ferroamp page (its options say)."""
+    return bool({**entry.data, **entry.options}.get(CONF_SHOW_PAGE, DEFAULT_SHOW_PAGE))
+
+
+@callback
+def page_wanted(hass: HomeAssistant, *, starting: ConfigEntry | None = None,
+                stopping: ConfigEntry | None = None) -> bool:
+    """Whether the page belongs in the sidebar: some running system shows it.
+    ``starting`` counts as running (it is being set up), ``stopping`` does not."""
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if stopping is not None and entry.entry_id == stopping.entry_id:
+            continue
+        running = entry.state is ConfigEntryState.LOADED or (
+            starting is not None and entry.entry_id == starting.entry_id)
+        if running and shows_page(entry):
+            return True
+    return False
+
+
 @callback
 def collect(hass: HomeAssistant) -> list[dict[str, Any]]:
-    """One plain dict per running system, as page_views expects."""
+    """One plain dict per running system the page shows, as page_views expects."""
     ent_reg = er.async_get(hass)
     dev_reg = dr.async_get(hass)
     found: list[dict[str, Any]] = []
     for entry in hass.config_entries.async_entries(DOMAIN):
-        if entry.state is not ConfigEntryState.LOADED:
+        if entry.state is not ConfigEntryState.LOADED or not shows_page(entry):
             continue
         prefix = f"{entry.data[CONF_FACILITY_ID]}_"
         entities: dict[str, str] = {}
@@ -127,11 +160,13 @@ def _page_class() -> type:
     return FerroampPage
 
 
-async def async_register(hass: HomeAssistant, version: str) -> None:
-    """Serve the cards and put the page in the sidebar. Once per run."""
+async def async_register(hass: HomeAssistant, version: str, cache_key: str | None = None) -> None:
+    """Serve the cards and put the page in the sidebar. Once, until unregistered.
+    ``cache_key`` goes into the cards' address beside the version, so a browser
+    that has them already loads them anew (async_rebuild)."""
     if _DATA in hass.data:
         return
-    js_url = f"{CARD_URL}?v={version}"
+    js_url = f"{CARD_URL}?v={version}" + (f"-{cache_key}" if cache_key else "")
     registered: dict[str, Any] = {"page": None, "js": js_url}
     hass.data[_DATA] = registered
     try:
@@ -191,3 +226,23 @@ def async_unregister(hass: HomeAssistant) -> None:
     dashboards = _lovelace_dashboards(hass)
     if dashboards is not None and dashboards.get(views.URL_PATH) is page:
         dashboards.pop(views.URL_PATH)
+
+
+async def async_sync(hass: HomeAssistant, version: str, *, starting: ConfigEntry | None = None,
+                     stopping: ConfigEntry | None = None) -> None:
+    """Put the page in the sidebar or take it out, as the systems' options say,
+    and tell open pages to fetch the layout again."""
+    if page_wanted(hass, starting=starting, stopping=stopping):
+        await async_register(hass, version)
+        async_announce_change(hass)
+    else:
+        async_unregister(hass)
+
+
+async def async_rebuild(hass: HomeAssistant, version: str) -> None:
+    """Build the page anew: out of the sidebar and back, with a new address for
+    the cards, and open pages told to fetch the layout again."""
+    async_unregister(hass)
+    if page_wanted(hass):
+        await async_register(hass, version, cache_key=str(int(time.time())))
+        async_announce_change(hass)

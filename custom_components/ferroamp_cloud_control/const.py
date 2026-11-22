@@ -10,9 +10,11 @@ CONF_REFRESH_TOKEN = "refresh_token"   # Keycloak offline token; the password is
 CONF_EMAIL = "email"                   # shown again when the login has to be renewed
 CONF_PREFIX = "prefix"                 # entity prefix, must match what EMS reads
 CONF_SCAN_INTERVAL = "scan_interval"
+CONF_SHOW_PAGE = "show_page"           # the Ferroamp page in the sidebar (page.py)
 
 DEFAULT_PREFIX = "ferroamp"
 DEFAULT_SCAN_INTERVAL_S = 30
+DEFAULT_SHOW_PAGE = True
 MIN_SCAN_INTERVAL_S = 15
 
 # Facility info, today's schedules and today's energy change slowly; they
