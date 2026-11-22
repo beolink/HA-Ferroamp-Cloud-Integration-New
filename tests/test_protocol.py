@@ -222,6 +222,17 @@ def test_energy_is_summed_to_kwh_with_nulls_as_zero():
     assert energy.hours == 2
 
 
+def test_a_quantity_no_hour_has_is_unknown_not_zero():
+    # A system whose cloud data has no battery energy shows it as unknown, not
+    # as nothing charged (VSH 2026-11-22 showed 0 kWh while MQTT counted 31).
+    rows = [{"pvProduced": 100, "consumption": 500, "gridImport": 400, "gridExport": 0,
+             "batteryCharged": None, "batteryDischarged": None}] * 3
+    energy = protocol.sum_energy(rows)
+    assert energy.grid_import_kwh == 1.2 and energy.grid_export_kwh == 0.0
+    assert energy.battery_charged_kwh is None and energy.battery_discharged_kwh is None
+    assert protocol.sum_energy([]).battery_charged_kwh == 0.0   # just past midnight
+
+
 def test_slow_without_energy_leaves_it_none():
     data = {"facility": {**SLOW["facility"], "measurements": {"energy": None}}}
     assert protocol.parse_slow(data, 12345).energy is None

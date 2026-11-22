@@ -436,14 +436,16 @@ class Info:
 
 @dataclass(frozen=True)
 class EnergyToday:
-    """Today's energy in kWh, summed from the hourly series."""
+    """Today's energy in kWh, summed from the hourly series. None where the
+    cloud gave no hour a value: it does not count that quantity for the system
+    (battery energy on a system with an older OS and a third-party battery)."""
 
-    solar_kwh: float = 0.0
-    consumption_kwh: float = 0.0
-    grid_import_kwh: float = 0.0
-    grid_export_kwh: float = 0.0
-    battery_charged_kwh: float = 0.0
-    battery_discharged_kwh: float = 0.0
+    solar_kwh: float | None = 0.0
+    consumption_kwh: float | None = 0.0
+    grid_import_kwh: float | None = 0.0
+    grid_export_kwh: float | None = 0.0
+    battery_charged_kwh: float | None = 0.0
+    battery_discharged_kwh: float | None = 0.0
     hours: int = 0
 
 
@@ -520,9 +522,13 @@ def parse_slow(data: dict, facility_id: int) -> Slow:
 
 
 def sum_energy(rows: list[dict]) -> EnergyToday:
-    """Sum hourly Wh rows into kWh. A field the API leaves null counts 0."""
-    def total(key: str) -> float:
-        return round(sum(_float(r.get(key)) or 0.0 for r in rows) / 1000.0, 3)
+    """Sum hourly Wh rows into kWh. An hour the API leaves null counts 0, but
+    a field no hour has a value for is None, not 0 kWh."""
+    def total(key: str) -> float | None:
+        values = [v for v in (_float(r.get(key)) for r in rows) if v is not None]
+        if rows and not values:
+            return None
+        return round(sum(values) / 1000.0, 3)
 
     return EnergyToday(
         solar_kwh=total("pvProduced"),

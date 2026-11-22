@@ -7,11 +7,15 @@ uses the hub's local MQTT ExtAPI.
 
 An EnergyHub with an ESO 15 kW battery optimizer needs EnergyHub OS 7 or
 later, and OS 7 has neither the MQTT ExtAPI nor Modbus (Ferroamp has said
-an ExtAPI for OS 7 is planned for Q1 2027). The web portal does not manage
+an ExtAPI for OS 7 is planned for Q1 2027). **A system that has the local
+MQTT ExtAPI or Modbus should use it** (ha-ferroamp-control): local sources
+always come first. This driver can still run beside it under another
+prefix, for the information only the cloud has, but EMS binds to the local
+one. The web portal does not manage
 these systems either; only the Ferroamp app does. This driver talks to the
 same cloud API as the app.
 
-## Status: 0.3, control tested on a live facility and in production
+## Status: 0.5, control tested on a live facility and in production
 
 - Telemetry under the names [EMS Steward](https://github.com/beolink/ha-ems)
   reads, so EMS finds them on its own: `sensor.ferroamp_soc`,
@@ -23,11 +27,20 @@ same cloud API as the app.
   with its settings as attributes), the active schedule, FerroAI's action,
   whether FerroAI is on, whether the system is online and when it was last
   heard from.
+- The system itself, as the Ferroamp app shows it: the software version and
+  the latest update, the system's state and its active alarms, the grid's
+  voltage, current and power per phase, the consumption per phase, phase
+  balancing and its correction per phase, the battery's health, state and cell
+  temperatures, and how many solar strings are running.
+- FerroAI and the price: the spot price the system is optimised against,
+  FerroAI's forecast of the state of charge, solar and consumption, FerroAI's
+  settings, and whether an outside service (a flexibility provider) is active.
 
 ### The Ferroamp page
 
 The integration adds a page to the sidebar, **Ferroamp**, with three tabs:
-Overview, Control and System. Every value and option on it has a blue "i" that
+Overview, Control and System (software, state and alarms, the grid, the
+battery and the solar panels). Every value and option on it has a blue "i" that
 writes out what it is, where it comes from and how often it is read, and a way
 into Home Assistant's own dialog for the entity, where a control is changed. The
 page is built afresh each time it is opened, in Swedish on a Swedish Home
@@ -137,7 +150,9 @@ without notice.
 
 `tools/probe.py` (one read of everything) and `tools/monitor.py` (a running
 log while schedules are tried in the app) read a system from the command
-line. Neither writes anything.
+line, and `tools/cloudapi_probe.py` reads it through Ferroamp's official,
+read-only Cloud API with a key from Ferroamp support. None of them writes
+anything.
 
 ## Development
 

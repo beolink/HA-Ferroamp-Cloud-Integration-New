@@ -1,5 +1,58 @@
 # Changelog
 
+## 0.5.0 (unreleased)
+
+What the Ferroamp app shows about the system itself, read from the same cloud:
+
+- Software: `sensor.ferroamp_firmware_version` (the system's EnergyHub OS), with
+  the control computer's version and generation, the latest update (from, to,
+  when) and the host name as attributes.
+- State and alarms: `sensor.ferroamp_system_state` (running, idle, degraded,
+  fault, offline) with since when, the life cycle, the main fuse, the number of
+  phases, the inverters' rated power and the ESO generation as attributes, and
+  `sensor.ferroamp_active_alarms`, the number of active alarms with each one's
+  code, product and start as an attribute.
+- The grid per phase: voltage and current on L1, L2 and L3, and
+  `binary_sensor.ferroamp_phase_balancing_active`, whether phase balancing
+  (ACE) is working right now. Read on every poll.
+- The battery: health (SoH, the weakest battery's), state with Ferroamp's
+  reasons (such as power derating at a high or low charge), the highest and
+  lowest cell temperature, and as attributes the manufacturer, the lowest and
+  highest cell voltage and the battery's voltage and current.
+- The solar strings: `sensor.ferroamp_solar_strings`, how many of them are
+  running, with each string's name, state and rated power as an attribute.
+- Power per phase: the grid's (`sensor.ferroamp_grid_power_l1` to `_l3`, + =
+  import) and the house's consumption (`sensor.ferroamp_consumption_power_l1`
+  to `_l3`), read on every poll with the grid's voltage and current. Phase
+  balancing's correction per phase is an attribute of
+  `binary_sensor.ferroamp_phase_balancing_active`.
+- FerroAI and the price: `sensor.ferroamp_spot_price`, the spot price the
+  system is optimised against, in the app's currency per kWh, with today's
+  and tomorrow's prices as an attribute; `sensor.ferroamp_forecast_soc`,
+  FerroAI's forecast of the state of charge for this hour, with the whole
+  forecast (state of charge, solar and consumption, hour by hour about a day
+  and a half ahead) as an attribute; FerroAI's settings (variant, grid tariff,
+  minimum earnings, its import and export limits, bidding zone) as attributes
+  of `binary_sensor.ferroamp_ferroai`; and whether an outside service (a
+  flexibility provider's Remote API, ancillary services) is active, as an
+  attribute of `sensor.ferroamp_system_state`.
+- The System tab of the Ferroamp page shows the system information in five
+  cards: Software, State and alarms, The grid, The battery and The solar
+  panels. The Control tab has a card of its own for FerroAI and the price.
+  Every row has its blue "i" as before.
+- Today's energy leaves a quantity unknown when the cloud gives no hour of the
+  day a value for it, instead of showing 0 kWh. On a system with an older
+  EnergyHub OS and a third-party battery the driver showed 0 kWh charged and
+  discharged while the hub's own MQTT counters had 31 and 12 kWh.
+- The system information is read every ten minutes, part by part: a part the
+  cloud does not answer leaves its values as they were and the rest is read as
+  usual. The diagnostics download carries every part as the cloud answered it,
+  and the error of each part the cloud refused.
+
+0.5.0-beta.1 is for checking the new values on live systems: which of them a
+system's cloud data fills in, the unit of the spot price, which of the two
+power series per phase adds up, and the battery's rated capacity unit.
+
 ## 0.4.1 (2026-11-22)
 
 - A command's manual schedule keeps the owner's phase balancing limit. It kept

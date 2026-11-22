@@ -13,7 +13,9 @@ from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
-from custom_components.ferroamp_cloud_control import api, protocol
+from _cloud_sim import GRID_ANSWER, SYSTEM_ANSWERS
+
+from custom_components.ferroamp_cloud_control import api, protocol, system
 from custom_components.ferroamp_cloud_control.const import DOMAIN
 
 NOW = dt.datetime(2026, 10, 27, 15, 35, 0, tzinfo=dt.UTC)
@@ -88,6 +90,11 @@ class FakeCloud:
             return copy.deepcopy(SLOW)
         if document is protocol.SCHEDULES:
             return {"facility": {"configuration": {"configurationSchedule": {"schedules": []}}}}
+        for name, part in system.PARTS.items():
+            if document is part:
+                return copy.deepcopy(SYSTEM_ANSWERS[name])
+        if document is system.GRID:
+            return copy.deepcopy(GRID_ANSWER)
         raise AssertionError("unexpected document")
 
 
@@ -159,6 +166,72 @@ async def test_sensors_under_the_ems_names_in_ferroamps_signs(hass: HomeAssistan
     assert state("sensor.ferroamp_active_schedule").state == "Self-consumption"
     assert state("binary_sensor.ferroamp_online").state == "on"
     assert state("binary_sensor.ferroamp_ferroai").state == "off"
+
+
+async def test_the_system_information_sensors(hass: HomeAssistant):
+    entry = entry_for(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    def state(entity_id):
+        st = hass.states.get(entity_id)
+        assert st is not None, entity_id
+        return st
+
+    firmware = state("sensor.ferroamp_firmware_version")
+    assert firmware.state == "8.0.1"
+    assert firmware.attributes["last_update_from"] == "8.0.0"
+    assert firmware.attributes["hostname"] == "eh-12345"
+    system_state = state("sensor.ferroamp_system_state")
+    assert system_state.state == "running"
+    assert system_state.attributes["phases"] == "three" and system_state.attributes["main_fuse_a"] == 20
+    alarms = state("sensor.ferroamp_active_alarms")
+    assert alarms.state == "1" and alarms.attributes["alarms"][0]["code"] == "SSO_OFFLINE"
+    assert state("sensor.ferroamp_grid_voltage_l2").state == "229.8"
+    assert state("sensor.ferroamp_grid_current_l3").state == "7.4"
+    assert state("binary_sensor.ferroamp_phase_balancing_active").state == "off"
+    health = state("sensor.ferroamp_battery_health")
+    assert health.state == "98.0" and health.attributes["manufacturer"] == "Pylontech"
+    battery_state = state("sensor.ferroamp_battery_state")
+    assert battery_state.state == "running"
+    assert battery_state.attributes["reasons"] == ["bat_soc_power_derating"]
+    assert state("sensor.ferroamp_battery_cell_temperature_max").state == "21.0"
+    assert state("sensor.ferroamp_battery_cell_temperature_min").state == "17.0"
+    strings = state("sensor.ferroamp_solar_strings")
+    assert strings.state == "1" and strings.attributes["total"] == 2
+    assert state("sensor.ferroamp_grid_power_l2").state == "313.34"
+    assert state("sensor.ferroamp_consumption_power_l3").state == "269.64"
+    balancing = state("binary_sensor.ferroamp_phase_balancing_active")
+    assert balancing.attributes["ace_correction_l1"] == 0.0 and balancing.attributes["ace_before_l3"] == 7.4
+    assert system_state.attributes["active_services"] == []
+    price = state("sensor.ferroamp_spot_price")
+    assert price.state == "0.84" and price.attributes["unit_of_measurement"] == "SEK/kWh"
+    assert [p["price"] for p in price.attributes["prices"]] == [0.84, 0.91]
+    forecast = state("sensor.ferroamp_forecast_soc")
+    assert forecast.state == "54.0" and len(forecast.attributes["forecast"]) == 2
+    ferroai = state("binary_sensor.ferroamp_ferroai")
+    assert ferroai.attributes["variant"] == "spot_price_optimization_v1"
+    assert ferroai.attributes["bidding_zone"] == "SE3"
+
+
+async def test_a_system_part_that_fails_leaves_the_rest(hass: HomeAssistant):
+    original = FakeCloud.query
+
+    async def no_alarms(self, document, variables=None):
+        if document is system.ALARMS or document is system.GRID:
+            raise api.CloudError("INTERNAL_SERVER_ERROR")
+        return await original(self, document, variables)
+
+    with patch.object(FakeCloud, "query", no_alarms):
+        entry = entry_for(hass)
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+    assert hass.states.get("sensor.ferroamp_firmware_version").state == "8.0.1"
+    assert hass.states.get("sensor.ferroamp_active_alarms").state == "unknown"
+    diagnostics_errors = entry.runtime_data.data.system.raw["errors"]
+    assert set(diagnostics_errors) == {"alarms"}
+    assert hass.states.get("sensor.ferroamp_grid_voltage_l1").state in ("unknown", "unavailable")
+    assert hass.states.get("sensor.ferroamp_battery_power").state == "3570.0"
 
 
 async def test_stale_power_goes_unavailable(hass: HomeAssistant, freezer):

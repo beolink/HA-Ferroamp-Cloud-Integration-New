@@ -162,6 +162,64 @@ query { __type(name: "ConfigurationScheduleDataInput") {
 } }""",
 }
 
+# What the facility is and how it fares, beyond the live values: software,
+# state, alarms, the grid per phase, the batteries and the solar strings. Each
+# part runs on its own, so a part the cloud refuses does not hide the others.
+SYSTEM_QUERIES: dict[str, str] = {
+    "sys_basics": """
+query ($id: Int!) { facility(where: {id: {equals: $id}}) {
+  id name hostname installedOn timezone info { version } capacity { installedPv }
+  lifeCycle { current { stage updatedAt } }
+  systemState { active { state createdAt updatedAt } }
+  singleBoardComputer { productId generation version installedAt lastSeenAt lifeCycleStage
+    versionChangeLog { fromVersion toVersion updatedAt } }
+} }""",
+    "sys_topology": """
+query ($id: Int!) { facility(where: {id: {equals: $id}}) {
+  topology {
+    system { mainFuse phases aceThreshold powerRatingPositive powerRatingNegative
+      state { active { state createdAt } } }
+    inverters { id enabled attributes { powerRating currentRating } }
+    batteries { id enabled manufacturer
+      attributes { capactyRating powerRating socLimitLow socLimitHigh cRateRating }
+      state { active { primary secondary updatedAt } }
+      esos { id generation enabled } }
+    ssos { installedCapacity terminals { id displayName enabled generation attributes { powerRating } } }
+    singleBoardComputers { id generation }
+    evChargers { id enabled }
+  }
+} }""",
+    "sys_alarms": """
+query ($id: Int!) { facility(where: {id: {equals: $id}}) {
+  alarm { entries { code status productId activatedAt updatedAt }
+          logs { code productId activatedAt resolvedAt } }
+} }""",
+    "sys_grid": """
+query ($id: Int!) { facility(where: {id: {equals: $id}}) {
+  measurements { latestGridData { timestamp u1 u2 u3 iExtRms1 iExtRms2 iExtRms3
+    iInvRms1 iInvRms2 iInvRms3 uDCpos uDCneg aceActive } }
+} }""",
+    "sys_bess": """
+query ($id: Int!) { facility(where: {id: {equals: $id}}) {
+  batteries { productId manufacturer
+    attributes { pid ratedCapacity ratedPower ratedCRate }
+    state { current { primary secondary updatedAt eso { esoProductId primary secondary tertiary } } }
+    log { current { stateOfCharge stateOfHealth batteryVoltage batteryCurrent dcLinkVoltage
+      cellTemperatureMin cellTemperatureMax cellVoltageMin cellVoltageMax
+      allowedChargeCurrent allowedDischargeCurrent bessState bessFault updatedAt } } }
+} }""",
+    "sys_ssos": """
+query ($id: Int!) { facility(where: {id: {equals: $id}}) {
+  ssos { id displayName enabled generation attributes { powerRating }
+    state { active { primary secondary updatedAt } } }
+} }""",
+}
+
+FACILITY_LIST = """
+query { facilities(take: 50, orderBy: {id: asc}) {
+  id name myRelation { relation } info { version } uiComponents { usesNewScheduler }
+} }"""
+
 # The standard graphql-js introspection query: the whole schema, no facility
 # data, written to its own file so the input types can be read offline.
 FULL_INTROSPECTION = """
@@ -355,6 +413,8 @@ def main() -> None:
     ap.add_argument("--stream-seconds", type=float, default=20)
     ap.add_argument("--out", default="probe.json")
     ap.add_argument("--schema-out", default="schema.json")
+    ap.add_argument("--system", action="store_true",
+                    help="only the system information, for every facility the account sees, to system.json")
     args = ap.parse_args()
 
     email = args.email or input("Ferroamp e-mail: ").strip()
@@ -380,6 +440,25 @@ def main() -> None:
             "start": midnight.astimezone(dt.timezone.utc).isoformat(), "end": now.isoformat(),
         }},
     }
+
+    if args.system:
+        out: dict = {}
+        try:
+            listed = graphql(token, FACILITY_LIST, {})
+            out["facilities"] = listed
+            ids = [int(f["id"]) for f in ((listed.get("data") or {}).get("facilities") or [])] or [args.facility_id]
+            for fid in ids:
+                for name, query in SYSTEM_QUERIES.items():
+                    answer = graphql(token, query, {"id": fid})
+                    out[f"{fid}:{name}"] = answer
+                    ok = "errors" not in answer and "http_error" not in answer
+                    print(f"{fid} {name:14s} {'ok' if ok else 'ERROR'}")
+        finally:
+            logout(args.client, tokens)
+        with open("system.json", "w") as fh:
+            json.dump(out, fh, indent=2, ensure_ascii=False)
+        print("Written to system.json (no tokens or password in it)")
+        return
 
     result: dict = {
         "facility_id": args.facility_id,

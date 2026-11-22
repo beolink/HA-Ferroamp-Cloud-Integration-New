@@ -121,6 +121,72 @@
       },
       "last_command": {
         "name": "Senaste kommando"
+      },
+      "firmware_version": {
+        "name": "Programvaruversion"
+      },
+      "system_state": {
+        "name": "Systemets tillstånd"
+      },
+      "active_alarms": {
+        "name": "Aktiva larm"
+      },
+      "grid_voltage_l1": {
+        "name": "Nätspänning L1"
+      },
+      "grid_voltage_l2": {
+        "name": "Nätspänning L2"
+      },
+      "grid_voltage_l3": {
+        "name": "Nätspänning L3"
+      },
+      "grid_current_l1": {
+        "name": "Nätström L1"
+      },
+      "grid_current_l2": {
+        "name": "Nätström L2"
+      },
+      "grid_current_l3": {
+        "name": "Nätström L3"
+      },
+      "battery_health": {
+        "name": "Batteriets hälsa"
+      },
+      "battery_state": {
+        "name": "Batteriets tillstånd"
+      },
+      "battery_cell_temperature_max": {
+        "name": "Högsta celltemperatur"
+      },
+      "battery_cell_temperature_min": {
+        "name": "Lägsta celltemperatur"
+      },
+      "solar_strings": {
+        "name": "Solcellssträngar i drift"
+      },
+      "grid_power_l1": {
+        "name": "Näteffekt L1"
+      },
+      "grid_power_l2": {
+        "name": "Näteffekt L2"
+      },
+      "grid_power_l3": {
+        "name": "Näteffekt L3"
+      },
+      "consumption_power_l1": {
+        "name": "Förbrukning L1"
+      },
+      "consumption_power_l2": {
+        "name": "Förbrukning L2"
+      },
+      "consumption_power_l3": {
+        "name": "Förbrukning L3"
+      },
+      "spot_price": {
+        "name": "Spotpris"
+      },
+      "forecast_soc": {
+        "name": "Prognos för laddnivå"
       }
     },
     "binary_sensor": {
@@ -132,6 +198,9 @@
       },
       "following": {
         "name": "Följer styrningen"
+      },
+      "phase_balancing_active": {
+        "name": "Fasbalansering arbetar"
       }
     },
     "switch": {

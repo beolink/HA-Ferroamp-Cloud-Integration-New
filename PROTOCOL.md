@@ -17,7 +17,18 @@ Q1 2027 (henricm/ha-ferroamp#926). The web portal refuses these facilities
 the only client that manages them, and its API is the one to follow.
 
 The official Cloud API (spec rev C, 2024-10-21, `GET /api?type=...&api_key=`)
-only reads, at most 300 calls a day. It is not used here.
+only reads, at most 300 calls a day. It is not used here; see
+[The official Cloud API](#the-official-cloud-api) for what it gives.
+
+Where a system has the local MQTT ExtAPI or Modbus, the local interface is
+always the one to use; this driver is for systems that only the cloud can
+reach. By default an EnergyHub has no inbound ports at all (Ferroamp's
+network description, rev C, 2021-12-02): it sits behind a NAT router of its
+own, every connection starts from inside it (MQTT and the eCloud gateway to
+Ferroamp, an SSH tunnel to Ferroamp's service gateway), and Modbus TCP or the
+ExtAPI can only be reached through port forwards Ferroamp sets up on request.
+Other parts of such a system can still have local sources, such as a
+Pylontech battery stack read through its own logger.
 
 ## Login: Keycloak, public client `user-app`
 
@@ -102,6 +113,49 @@ facility(where: {id: {equals: $facilityId}}) {
 ```
 
 `VARIANT_X` is what the portal calls "VX": the OS 7 generation.
+
+### The system itself (0.5)
+
+The app's system pages read these fields of `facility` (`system.py` holds the
+queries; each is asked on its own, so one the server refuses leaves the rest):
+
+- `hostname`, `installedOn`, `info { version }`, `lifeCycle { current { stage } }`,
+  `systemState { active { state createdAt } }` and
+  `singleBoardComputer { generation version versionChangeLog { fromVersion toVersion updatedAt } }`:
+  the software and the system's state (`RUNNING`, `IDLE`, `DEGRADED`, `FAULT`,
+  `OFFLINE`, `UNKNOWN_SET_BY_ECLOUD`).
+- `topology { system { mainFuse phases aceThreshold } inverters { attributes { powerRating } } batteries { esos { generation } } }`:
+  how the system is built. The battery's capacity attribute is spelt
+  `capactyRating` in the schema.
+- `alarm { entries { code status productId activatedAt } }`: the alarms; only
+  `status: ACTIVE` counts. Codes seen in the schema: `SYSTEM_OFFLINE`,
+  `SSO_OFFLINE`.
+- `batteries { manufacturer attributes { ratedCapacity ratedPower } state { current { primary secondary } } log { current { stateOfHealth batteryVoltage batteryCurrent cellTemperatureMin cellTemperatureMax cellVoltageMin cellVoltageMax } } }`:
+  per battery. `secondary` lists reasons such as `BAT_SOC_POWER_DERATING`.
+  `ratedCapacity` is taken to be Wh, as in the official Cloud API's
+  example; not yet confirmed on a live system.
+- `ssos { displayName enabled generation attributes { powerRating } state { active { primary secondary } } }`:
+  the solar string optimisers.
+- `measurements { latestGridData { timestamp u1 u2 u3 iExtRms1 iExtRms2 iExtRms3 aceActive acePhase1..3 { beforeCorrection correction result } } }`:
+  the grid per phase (V and A), whether phase balancing works right now and
+  its correction per phase (the app's PhaseBalancingStream shows the same).
+- `measurements { latestPower { gridPower loadPower pExtD1..3 pExtQ1..3 pLoadD1..3 pLoadQ1..3 } }`:
+  power per phase. There are two sets per phase; in the official Cloud API's
+  example the `Q` set adds up to the total, so the driver takes `Q` unless
+  `D` is the set that adds up on the system. To be confirmed live.
+- `optimization { activatedAt enabled limitExportThreshold limitImportThreshold minimumEarnings optimizationVariant tariffOptions }`,
+  `location { energyBiddingZone }`, `uiComponents { activeServices }`:
+  FerroAI's settings as the app's GetFacilityOptimizationOptions reads them,
+  and the outside services that are active (`RemoteApi`, `AncillaryService`).
+- `spotPrices { current { price startTimestamp endTimestamp } entries(where: {day: {gte, lte}}) { ... } } misc { currencyCode }`:
+  the spot price, as the app's GetSpotPrice. The unit is taken to be the
+  currency per kWh; to be confirmed live.
+- `measurements { predictions(where: {timestamp: {gte, lt}}, unit: W) { timestamp stateOfCharge solarPower consumptionPower } }`:
+  FerroAI's forecast, as the app's overview.
+- Not read: `settings { cloudApi { apiKey bindIp allowedRequests } }` (it
+  holds the official Cloud API's key) and the per-string power and energy
+  (`ssos { power(...) }`, `unitEnergy(...)` per string), whose arguments are
+  not yet seen in use.
 
 ## Control: configuration schedules
 
@@ -233,6 +287,38 @@ has `SystemModeV2`/`SystemModeV3`, which add `Measurement` and
 `AcPowerReference`. Whether a VARIANT_X facility accepts this path is
 *unverified*; the user app does not use it.
 
+## The official Cloud API
+
+Ferroamp's documented, read-only API (spec rev C, 2024-10-21). The spec gives
+only the path; the host was found by asking with a made-up key (2026-11-22):
+`https://portal.ferroamp.com/api` and `https://api.eu.prod.ferroamp.com/api`
+both answer, the latter being the app's API host. Without a registered key
+the answer is HTTP 401 `"No api authentication could be found. Have you
+registred your API at https://portal.ferroamp.com? Else context support."`
+
+- `GET /api?type=<type>&fid=<facility id>&api_key=<40 characters>`; the key is
+  activated per facility by Ferroamp support and registered in the EnergyCloud
+  portal. 401 also when the key does not match the facility or the calling IP
+  address is not allowed; 429 past 300 calls in 24 hours. Every answer carries
+  `requests` and `max_requests`.
+- `pvdisplay`: `pve` (Wh, lifetime), `pvp` (W, now), `pvetoday` (Wh).
+- `totalenergy`: lifetime counters per phase, `wExtProdQ1..3`/`wExtConsQ1..3`
+  (grid export/import), `wInvProdQ1..3`/`wInvConsQ1..3`, `wLoadProdQ1..3`/
+  `wLoadConsQ1..3`, `wPv`, `wBatProd`, `wBatCons`, each `{val, ts}`. The spec's
+  table says kWh, its examples are far larger; to be read off a live answer.
+- `mixeddisplay`: `totalenergy` as above, `uidata` (now: `pvPower`, `batPower`,
+  `extPower`, `invPower`, `loadPower`, per phase `pLoadQn`, `pInvQn`, `pExtQn`,
+  `u1..3` (V), `iExtRms1..3`, `iExtD1..3`, `iExtQ1..3`, `iInvRms1..3`,
+  `iInvD1..3`, `iInvQ1..3` (A), `uPos`/`uNeg` (DC link, V)) and `batterydata`
+  (`ratedCapacity` 28416 in the example, so Wh, `soc`, `soh`, `ts`).
+- `energy`: per hour between `startdate` and `enddate` (`YYYY-MM-DDTHH`, at
+  most 32 days), `ep1..3`/`ec1..3` (grid), `ip1..3`/`ic1..3` (inverter),
+  `lp1..3`/`lc1..3` (load), `pve`, `ts`, unit `wH`.
+
+It neither controls nor shows the system's state, alarms, battery cells or
+solar strings; the app's API does. `tools/cloudapi_probe.py` reads all four
+types once (four calls) with a key given at the prompt.
+
 ## Remote API (OS 8.0.1)
 
 The app knows a `RemoteApi` ancillary service with providers `Elvy`,
@@ -287,6 +373,32 @@ From `tools/probe.py`, read only, client `user-app`:
   `INTERNAL_SERVER_ERROR` on its non-null `generation`; leave that field out.
 - `DatetimeRangeQuery` takes `gt`/`gte`/`lt`/`lte`, not `start`/`end`.
 - `systemControlTopologyConfiguration` answered `MISSING_DATA`.
+
+## Compared with the local MQTT ExtAPI (2026-11-22)
+
+On a second system, one with the MQTT ExtAPI (1.2.1), a third-party battery
+of 30.6 kWh and four solar strings, this driver (0.4.1, read-only, control
+off) ran beside the local MQTT integration. Ten samples 30 s apart, at night:
+
+- Live power agrees: median grid 2 009 W locally against 2 003 W from the
+  cloud, consumption 1 890 against 1 884 W, battery -77.2 W on both (same
+  sign: + = discharging), solar 0 on both. The cloud's sample is 25 to 40 s
+  old when read, so single samples can differ by several hundred watts while
+  the house load moves; each cloud value matches the local one about 30 s
+  earlier.
+- SoC (57 %) and rated capacity (30.6 kWh, the hub's 30 600 Wh) agree.
+- Today's energy: grid import 98.67 kWh locally against 98.15, consumption
+  78.45 against 77.95, solar 1.23 on both. Export 1.28 against 0.51: the hub
+  counts each phase on its own; the difference fits the cloud netting the
+  phases, as the meter does (not confirmed).
+- Battery energy today: 30.97 kWh charged and 11.64 discharged locally, 0.00
+  and 0.00 from the cloud. 0.5.0 shows a quantity the cloud gives no value
+  for as unknown; whether this system's cloud data is null or zero is not yet
+  known.
+- The configuration in force and the active schedule are empty on this
+  system: the app's configuration schedules (OS 7 and later) do not cover it,
+  so control through the cloud does not apply. It is controlled locally, as
+  it should be.
 
 ## Schedule test (2026-10-27, an ESO 15 facility, schedules made in the app)
 

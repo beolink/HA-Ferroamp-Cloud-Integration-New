@@ -121,6 +121,72 @@
       },
       "last_command": {
         "name": "Last command"
+      },
+      "firmware_version": {
+        "name": "Software version"
+      },
+      "system_state": {
+        "name": "System state"
+      },
+      "active_alarms": {
+        "name": "Active alarms"
+      },
+      "grid_voltage_l1": {
+        "name": "Grid voltage L1"
+      },
+      "grid_voltage_l2": {
+        "name": "Grid voltage L2"
+      },
+      "grid_voltage_l3": {
+        "name": "Grid voltage L3"
+      },
+      "grid_current_l1": {
+        "name": "Grid current L1"
+      },
+      "grid_current_l2": {
+        "name": "Grid current L2"
+      },
+      "grid_current_l3": {
+        "name": "Grid current L3"
+      },
+      "battery_health": {
+        "name": "Battery health"
+      },
+      "battery_state": {
+        "name": "Battery state"
+      },
+      "battery_cell_temperature_max": {
+        "name": "Highest cell temperature"
+      },
+      "battery_cell_temperature_min": {
+        "name": "Lowest cell temperature"
+      },
+      "solar_strings": {
+        "name": "Solar strings running"
+      },
+      "grid_power_l1": {
+        "name": "Grid power L1"
+      },
+      "grid_power_l2": {
+        "name": "Grid power L2"
+      },
+      "grid_power_l3": {
+        "name": "Grid power L3"
+      },
+      "consumption_power_l1": {
+        "name": "Consumption L1"
+      },
+      "consumption_power_l2": {
+        "name": "Consumption L2"
+      },
+      "consumption_power_l3": {
+        "name": "Consumption L3"
+      },
+      "spot_price": {
+        "name": "Spot price"
+      },
+      "forecast_soc": {
+        "name": "Forecast state of charge"
       }
     },
     "binary_sensor": {
@@ -132,6 +198,9 @@
       },
       "following": {
         "name": "Following"
+      },
+      "phase_balancing_active": {
+        "name": "Phase balancing active"
       }
     },
     "switch": {

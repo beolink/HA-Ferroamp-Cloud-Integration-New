@@ -36,7 +36,12 @@ UI: Final[dict[str, tuple[str, str]]] = {
     "in_force": ("Det anläggningen gör nu", "What the system does now"),
     "schedule": ("Schema och FerroAI", "Schedule and FerroAI"),
     "connection": ("Anslutning", "Connection"),
+    "software": ("Programvara", "Software"),
+    "state_alarms": ("Tillstånd och larm", "State and alarms"),
+    "grid": ("Elnätet", "The grid"),
+    "strings": ("Solcellerna", "The solar panels"),
     "battery": ("Batteriet", "The battery"),
+    "ferroai_price": ("FerroAI och elpriset", "FerroAI and the price"),
     "explain": ("Förklaring", "Explanation"),
     "more_info": ("Öppna i Home Assistant", "Open in Home Assistant"),
     "yes": ("Ja", "Yes"),
@@ -49,6 +54,8 @@ UI: Final[dict[str, tuple[str, str]]] = {
     "still": ("står still", "idle"),
     "none": ("ingen uppgift", "none"),
     "once": ("en gång", "once"),
+    "of": ("av", "of"),
+    "no_alarms": ("inga", "none"),
     "every_day": ("varje dag", "every day"),
     "every_week": ("varje vecka", "every week"),
     "every_month": ("varje månad", "every month"),
@@ -113,6 +120,51 @@ WORDS: Final[dict[str, dict[str, tuple[str, str]]]] = {
         "NORMAL": ("Vanligt schema", "Normal schedule"),
         "FALLBACK": ("Standardschema", "Standard schedule"),
     },
+    "ferro_state": {
+        "running": ("I drift", "Running"),
+        "idle": ("Vilar", "Idle"),
+        "degraded": ("Nedsatt", "Degraded"),
+        "fault": ("Fel", "Fault"),
+        "offline": ("Nere", "Offline"),
+        "unknown_set_by_ecloud": ("Okänt", "Unknown"),
+    },
+    "lifecycle": {
+        "active": ("Aktiv", "Active"),
+        "installed": ("Installerad", "Installed"),
+        "planned": ("Planerad", "Planned"),
+        "pending": ("Väntar", "Pending"),
+        "reconfigure": ("Konfigureras om", "Being reconfigured"),
+        "discontinued": ("Avvecklad", "Discontinued"),
+    },
+    "phases": {
+        "one": ("En fas", "One phase"),
+        "three": ("Tre faser", "Three phases"),
+    },
+    "alarm_code": {
+        "SYSTEM_OFFLINE": ("Systemet är nere", "The system is offline"),
+        "SSO_OFFLINE": ("En solcellsoptimerare är nere", "A solar string optimiser is offline"),
+        "ALL": ("Alla", "All"),
+    },
+    "working": {
+        "on": ("Arbetar", "Working"),
+        "off": ("Vilar", "Idle"),
+    },
+    "active_service": {
+        "remote_api": ("Remote API (flexleverantör)", "Remote API (flexibility provider)"),
+        "ancillary_service": ("Stödtjänster till elnätet", "Ancillary services to the grid"),
+    },
+    "ferroai_variant": {
+        "ferro_optimizer_v1": ("Ferro Optimizer", "Ferro Optimizer"),
+        "spot_price_optimization_v1": ("Spotprisoptimering", "Spot price optimisation"),
+    },
+    "tariff_option": {
+        "no_tariff": ("Ingen tidstariff", "No time tariff"),
+        "same_tariff_all_day": ("Samma tariff hela dygnet", "The same tariff all day"),
+        "weekdays_07_to_20": ("Högre vardagar 07 till 20", "Higher on weekdays 07 to 20"),
+        "all_days_07_to_20": ("Högre alla dagar 07 till 20", "Higher every day 07 to 20"),
+        "reducted_tariff_at_night": ("Lägre på natten", "Lower at night"),
+        "reduced_x2_20_to_07": ("Sänkt (x2) 20 till 07", "Reduced (x2) 20 to 07"),
+    },
     "on_off": {
         "on": ("På", "On"),
         "off": ("Av", "Off"),
@@ -173,6 +225,62 @@ NAMES: Final[dict[str, tuple[str, str]]] = {
     "last_seen": ("Senast hörd", "Last heard from"),
     "battery_capacity": ("Kapacitet", "Capacity"),
     "max_charge_power": ("Märkeffekt", "Rated power"),
+    "firmware_version": ("Systemets version", "System version"),
+    "firmware_version.controller_version": ("Styrdatorns version", "Controller version"),
+    "firmware_version.controller_generation": ("Styrdatorns generation", "Controller generation"),
+    "firmware_version.last_update_to": ("Senast uppdaterad till", "Last updated to"),
+    "firmware_version.last_update_from": ("Uppdaterad från", "Updated from"),
+    "firmware_version.last_update_at": ("Uppdaterad", "Updated"),
+    "firmware_version.hostname": ("Värdnamn", "Host name"),
+    "system_state": ("Systemets tillstånd", "System state"),
+    "system_state.since": ("Sedan", "Since"),
+    "system_state.lifecycle": ("Livscykel", "Life cycle"),
+    "system_state.main_fuse_a": ("Huvudsäkring", "Main fuse"),
+    "system_state.phases": ("Faser", "Phases"),
+    "system_state.inverter_power_rating_w": ("Växelriktarens märkeffekt", "Inverter rated power"),
+    "system_state.eso_generation": ("Batteriomvandlare (ESO)", "Battery converter (ESO)"),
+    "active_alarms": ("Aktiva larm", "Active alarms"),
+    "active_alarms.alarms": ("Larmen", "The alarms"),
+    "grid_voltage_l1": ("Spänning L1", "Voltage L1"),
+    "grid_voltage_l2": ("Spänning L2", "Voltage L2"),
+    "grid_voltage_l3": ("Spänning L3", "Voltage L3"),
+    "grid_current_l1": ("Ström L1", "Current L1"),
+    "grid_current_l2": ("Ström L2", "Current L2"),
+    "grid_current_l3": ("Ström L3", "Current L3"),
+    "phase_balancing_active": ("Fasbalansering just nu", "Phase balancing now"),
+    "phase_balancing_active.ace_correction_l1": ("Korrigering L1", "Correction L1"),
+    "phase_balancing_active.ace_correction_l2": ("Korrigering L2", "Correction L2"),
+    "phase_balancing_active.ace_correction_l3": ("Korrigering L3", "Correction L3"),
+    "grid_power_l1": ("Näteffekt L1", "Grid power L1"),
+    "grid_power_l2": ("Näteffekt L2", "Grid power L2"),
+    "grid_power_l3": ("Näteffekt L3", "Grid power L3"),
+    "consumption_power_l1": ("Förbrukning L1", "Consumption L1"),
+    "consumption_power_l2": ("Förbrukning L2", "Consumption L2"),
+    "consumption_power_l3": ("Förbrukning L3", "Consumption L3"),
+    "system_state.active_services": ("Externa tjänster", "Outside services"),
+    "ferroai.variant": ("Optimering", "Optimisation"),
+    "ferroai.activated_at": ("Påslagen sedan", "On since"),
+    "ferroai.tariff_option": ("Nättariff", "Grid tariff"),
+    "ferroai.minimum_earnings": ("Minsta vinst", "Minimum earnings"),
+    "ferroai.limit_import_threshold": ("FerroAI:s köpgräns", "FerroAI's import limit"),
+    "ferroai.limit_export_threshold": ("FerroAI:s säljgräns", "FerroAI's export limit"),
+    "ferroai.bidding_zone": ("Elområde", "Bidding zone"),
+    "spot_price": ("Spotpris nu", "Spot price now"),
+    "forecast_soc": ("Prognos för laddnivån", "Forecast state of charge"),
+    "forecast_soc.solar_w": ("Prognos för solen", "Forecast solar"),
+    "forecast_soc.consumption_w": ("Prognos för förbrukningen", "Forecast consumption"),
+    "battery_state": ("Tillstånd", "State"),
+    "battery_state.reasons": ("Orsaker", "Reasons"),
+    "battery_health": ("Hälsa (SoH)", "Health (SoH)"),
+    "battery_health.manufacturer": ("Tillverkare", "Manufacturer"),
+    "battery_health.battery_voltage_v": ("Batterispänning", "Battery voltage"),
+    "battery_health.battery_current_a": ("Batteriström", "Battery current"),
+    "battery_health.cell_voltage_min_v": ("Lägsta cellspänning", "Lowest cell voltage"),
+    "battery_health.cell_voltage_max_v": ("Högsta cellspänning", "Highest cell voltage"),
+    "battery_cell_temperature_min": ("Lägsta celltemperatur", "Lowest cell temperature"),
+    "battery_cell_temperature_max": ("Högsta celltemperatur", "Highest cell temperature"),
+    "solar_strings": ("Strängar i drift", "Strings running"),
+    "solar_strings.strings": ("Strängarna", "The strings"),
 }
 
 #: What every value and option is, by the page's key for it. A key is an
@@ -184,6 +292,14 @@ EXPLAIN: Final[dict[str, tuple[str, str]]] = {
         "skickar ett nytt värde till Ferroamps moln var 15:e sekund.",
         "What the solar panels give right now, summed over all strings. The system measures "
         "it and sends a new value to Ferroamp's cloud every 15 seconds.",
+    ),
+    "system_state.active_services": (
+        "Tjänster utanför Ferroamp som är aktiva för anläggningen: en flexleverantörs Remote "
+        "API eller stödtjänster till elnätet. När en sådan styr kan varken ägaren eller FerroAI "
+        "styra fullt ut.",
+        "Services outside Ferroamp that are active for the system: a flexibility provider's "
+        "Remote API or ancillary services to the grid. While one of them steers, neither the "
+        "owner nor FerroAI can steer fully.",
     ),
     "consumption_power": (
         "Vad huset förbrukar just nu, utan batteriets laddning. Det är effekten till husets "
@@ -440,6 +556,289 @@ EXPLAIN: Final[dict[str, tuple[str, str]]] = {
         "toppar. Tomt när FerroAI är av.",
         "What FerroAI is doing right now, while it is on: for instance charging, discharging or "
         "peak shaving. Empty while FerroAI is off.",
+    ),
+    "ferroai.variant": (
+        "Vilket slags optimering FerroAI kör: Ferroamps egen optimerare eller enbart mot "
+        "spotpriset. Läses var tionde minut.",
+        "Which kind of optimisation FerroAI runs: Ferroamp's own optimiser or against the spot "
+        "price alone. Read every ten minutes.",
+    ),
+    "ferroai.activated_at": (
+        "När FerroAI senast slogs på för anläggningen, enligt molnet.",
+        "When FerroAI was last switched on for the system, according to the cloud.",
+    ),
+    "ferroai.tariff_option": (
+        "Den tidstariff för elnätet som ägaren har valt i appen, som FerroAI räknar med när "
+        "den planerar.",
+        "The grid's time tariff the owner chose in the app, which FerroAI counts on when it "
+        "plans.",
+    ),
+    "ferroai.minimum_earnings": (
+        "Den minsta vinst som ägaren har valt i appen för att FerroAI ska ladda och ladda ur, "
+        "som appen anger den.",
+        "The smallest gain the owner chose in the app for FerroAI to charge and discharge, as "
+        "the app gives it.",
+    ),
+    "ferroai.limit_import_threshold": (
+        "Den gräns för köp från nätet som FerroAI håller sig under, som appen anger den. "
+        "Det är FerroAI:s inställning, inte drivarens gräns på fliken Styrning.",
+        "The limit for buying from the grid that FerroAI keeps below, as the app gives it. It is "
+        "FerroAI's setting, not the driver's limit on the Control tab.",
+    ),
+    "ferroai.limit_export_threshold": (
+        "Den gräns för försäljning till nätet som FerroAI håller sig under, som appen anger den.",
+        "The limit for selling to the grid that FerroAI keeps below, as the app gives it.",
+    ),
+    "ferroai.bidding_zone": (
+        "Elområdet som anläggningens spotpris hämtas för, till exempel SE3.",
+        "The bidding zone the system's spot price is fetched for, for instance SE3.",
+    ),
+    "spot_price": (
+        "Spotpriset för den här perioden, det pris anläggningen optimeras mot, i den valuta "
+        "appen visar per kWh. Attributen har dagens priser och morgondagens när de finns. "
+        "Läses var tionde minut.",
+        "The spot price for this period, the price the system is optimised against, in the "
+        "currency the app shows, per kWh. The attributes hold today's prices, and tomorrow's "
+        "once they are out. Read every ten minutes.",
+    ),
+    "forecast_soc": (
+        "Den laddnivå FerroAI räknar med för den här timmen, i %. Hela prognosen, timme för "
+        "timme ungefär ett och ett halvt dygn framåt, finns i attributen. Tomt när molnet "
+        "inte har någon prognos.",
+        "The state of charge FerroAI expects for this hour, in %. The whole forecast, hour by "
+        "hour about a day and a half ahead, is in the attributes. Empty while the cloud has "
+        "no forecast.",
+    ),
+    "forecast_soc.solar_w": (
+        "Den solproduktion FerroAI räknar med för den här timmen, i W.",
+        "The solar production FerroAI expects for this hour, in W.",
+    ),
+    "forecast_soc.consumption_w": (
+        "Den förbrukning FerroAI räknar med för den här timmen, i W.",
+        "The consumption FerroAI expects for this hour, in W.",
+    ),
+    # ----------------------------------------------------------------- software
+    "firmware_version": (
+        "Versionen av EnergyHubens operativsystem, som molnet anger den. ESO 15 kräver version 7 "
+        "eller senare. Ferroamp uppdaterar den själva, utan att ägaren behöver göra något.",
+        "The version of the EnergyHub's operating system, as the cloud gives it. An ESO 15 needs "
+        "version 7 or later. Ferroamp updates it themselves, without the owner doing anything.",
+    ),
+    "firmware_version.controller_version": (
+        "Versionen på EnergyHubens egen dator, den som talar med molnet. Oftast samma som "
+        "systemets version.",
+        "The version on the EnergyHub's own computer, the one that talks to the cloud. Usually the "
+        "same as the system's version.",
+    ),
+    "firmware_version.controller_generation": (
+        "Vilken sorts dator EnergyHuben har: CORE i nyare system, BBB (BeagleBone) i äldre.",
+        "Which kind of computer the EnergyHub has: CORE in newer systems, BBB (BeagleBone) in older.",
+    ),
+    "firmware_version.last_update_to": (
+        "Den version anläggningen senast uppdaterades till, enligt styrdatorns logg.",
+        "The version the system was last updated to, according to the controller's log.",
+    ),
+    "firmware_version.last_update_from": (
+        "Den version anläggningen hade före den senaste uppdateringen.",
+        "The version the system had before the latest update.",
+    ),
+    "firmware_version.last_update_at": (
+        "När Ferroamp senast uppdaterade anläggningens programvara, enligt molnet.",
+        "When Ferroamp last updated the system's software, according to the cloud.",
+    ),
+    "firmware_version.hostname": (
+        "EnergyHubens namn i nätverket, som Ferroamp har satt det.",
+        "The EnergyHub's name on the network, as Ferroamp has set it.",
+    ),
+    # ------------------------------------------------------------ state, alarms
+    "system_state": (
+        "Hela systemets tillstånd enligt Ferroamp. I drift: allt fungerar. Vilar: inget att göra "
+        "just nu. Nedsatt: systemet går men någon del fungerar inte fullt ut. Fel: något har "
+        "stoppat. Samma besked som i Ferroamps app.",
+        "The whole system's state according to Ferroamp. Running: all is well. Idle: nothing to do "
+        "right now. Degraded: the system runs, but some part does not work fully. Fault: something "
+        "has stopped. The same word as in Ferroamp's app.",
+    ),
+    "system_state.since": (
+        "När systemet kom i det tillstånd det har nu.",
+        "When the system came into the state it is in now.",
+    ),
+    "system_state.lifecycle": (
+        "Var anläggningen är i Ferroamps register: planerad, installerad, aktiv, under omkonfigurering "
+        "eller avvecklad. En anläggning i drift är aktiv.",
+        "Where the system is in Ferroamp's register: planned, installed, active, being reconfigured "
+        "or discontinued. A system in use is active.",
+    ),
+    "system_state.main_fuse_a": (
+        "Huvudsäkringens storlek i A, som installatören har angett den. Fasbalanseringen och "
+        "importtaket räknar med den.",
+        "The main fuse's size in A, as the installer entered it. Phase balancing and the import "
+        "cap work with it.",
+    ),
+    "system_state.phases": (
+        "Om anläggningen är ansluten med en eller tre faser.",
+        "Whether the system is connected with one phase or three.",
+    ),
+    "system_state.inverter_power_rating_w": (
+        "Växelriktarens märkeffekt i W, alltså hur mycket EnergyHuben kan ge eller ta mot nätet.",
+        "The inverter's rated power in W, that is how much the EnergyHub can give to or take from "
+        "the grid.",
+    ),
+    "system_state.eso_generation": (
+        "Vilken batteriomvandlare (ESO) systemet har: ESO6 eller ESO15. ESO15 kräver EnergyHub OS 7 "
+        "eller senare, och det är därför den här integrationen behövs.",
+        "Which battery converter (ESO) the system has: ESO6 or ESO15. An ESO15 needs EnergyHub OS 7 "
+        "or later, which is why this integration is needed.",
+    ),
+    "active_alarms": (
+        "Hur många larm som är aktiva just nu. Ferroamps larm gäller att systemet eller en "
+        "solcellsoptimerare (SSO) har tappat kontakten.",
+        "How many alarms are active right now. Ferroamp's alarms are about the system or a solar "
+        "string optimiser (SSO) having lost contact.",
+    ),
+    "active_alarms.alarms": (
+        "Varje aktivt larm: vad det gäller, vilken enhet och sedan när.",
+        "Every active alarm: what it is about, which unit and since when.",
+    ),
+    # ------------------------------------------------------------------- grid
+    "grid_voltage_l1": (
+        "Nätets spänning på fas L1 vid anslutningen, i V. Normalt runt 230 V.",
+        "The grid's voltage on phase L1 at the connection, in V. Normally around 230 V.",
+    ),
+    "grid_voltage_l2": (
+        "Nätets spänning på fas L2 vid anslutningen, i V.",
+        "The grid's voltage on phase L2 at the connection, in V.",
+    ),
+    "grid_voltage_l3": (
+        "Nätets spänning på fas L3 vid anslutningen, i V.",
+        "The grid's voltage on phase L3 at the connection, in V.",
+    ),
+    "grid_current_l1": (
+        "Strömmen på fas L1 mot nätet, i A, som effektivvärde. Det är den som går genom "
+        "huvudsäkringen och som fasbalanseringen håller under sin gräns.",
+        "The current on phase L1 towards the grid, in A (RMS). It is what passes the main fuse and "
+        "what phase balancing keeps below its limit.",
+    ),
+    "grid_current_l2": (
+        "Strömmen på fas L2 mot nätet, i A, som effektivvärde.",
+        "The current on phase L2 towards the grid, in A (RMS).",
+    ),
+    "grid_current_l3": (
+        "Strömmen på fas L3 mot nätet, i A, som effektivvärde.",
+        "The current on phase L3 towards the grid, in A (RMS).",
+    ),
+    "phase_balancing_active": (
+        "Om fasbalanseringen (ACE) flyttar ström mellan faserna just nu, för att hålla den mest "
+        "belastade fasen under gränsen.",
+        "Whether phase balancing (ACE) is moving current between the phases right now, to keep the "
+        "most loaded phase below the limit.",
+    ),
+    "phase_balancing_active.ace_correction_l1": (
+        "Hur mycket ström fasbalanseringen flyttar på fas L1 just nu, i A, som Ferroamp anger "
+        "den. Noll när den vilar. Attributen har också strömmen före och efter korrigeringen.",
+        "How much current phase balancing moves on phase L1 right now, in A, as Ferroamp gives "
+        "it. Zero while it rests. The attributes also hold the current before and after.",
+    ),
+    "phase_balancing_active.ace_correction_l2": (
+        "Hur mycket ström fasbalanseringen flyttar på fas L2 just nu, i A.",
+        "How much current phase balancing moves on phase L2 right now, in A.",
+    ),
+    "phase_balancing_active.ace_correction_l3": (
+        "Hur mycket ström fasbalanseringen flyttar på fas L3 just nu, i A.",
+        "How much current phase balancing moves on phase L3 right now, in A.",
+    ),
+    "grid_power_l1": (
+        "Effekten mot nätet på fas L1, i W. Positiv när fasen köper, negativ när den säljer. "
+        "Faserna mäts var för sig, så en fas kan sälja medan en annan köper.",
+        "The power towards the grid on phase L1, in W. Positive while the phase buys, negative "
+        "while it sells. Each phase is measured on its own, so one can sell while another buys.",
+    ),
+    "grid_power_l2": (
+        "Effekten mot nätet på fas L2, i W. Positiv vid köp, negativ vid försäljning.",
+        "The power towards the grid on phase L2, in W. Positive when buying, negative when selling.",
+    ),
+    "grid_power_l3": (
+        "Effekten mot nätet på fas L3, i W. Positiv vid köp, negativ vid försäljning.",
+        "The power towards the grid on phase L3, in W. Positive when buying, negative when selling.",
+    ),
+    "consumption_power_l1": (
+        "Husets förbrukning på fas L1, i W, som EnergyHuben räknar fram den. Visar vilken fas "
+        "de stora lasterna ligger på.",
+        "The house's consumption on phase L1, in W, as the EnergyHub works it out. It shows which "
+        "phase the large loads are on.",
+    ),
+    "consumption_power_l2": (
+        "Husets förbrukning på fas L2, i W, som EnergyHuben räknar fram den.",
+        "The house's consumption on phase L2, in W, as the EnergyHub works it out.",
+    ),
+    "consumption_power_l3": (
+        "Husets förbrukning på fas L3, i W, som EnergyHuben räknar fram den.",
+        "The house's consumption on phase L3, in W, as the EnergyHub works it out.",
+    ),
+    # ---------------------------------------------------------------- battery
+    "battery_state": (
+        "Batteriets tillstånd enligt Ferroamp. Med flera batterier visas det sämsta.",
+        "The battery's state according to Ferroamp. With several batteries, the worst one shows.",
+    ),
+    "battery_state.reasons": (
+        "Batteriets egna koder för vad det gör eller varför det är begränsat, till exempel "
+        "underhållsladdning eller nedstämpling av effekten vid låg laddnivå eller hög temperatur. "
+        "Koderna visas som Ferroamp skriver dem.",
+        "The battery's own codes for what it does or why it is limited, for instance a maintenance "
+        "charge or power derated at a low charge or a high temperature. The codes show as Ferroamp "
+        "writes them.",
+    ),
+    "battery_health": (
+        "Batteriets hälsa (state of health) i procent: hur mycket av den ursprungliga kapaciteten "
+        "som finns kvar. Med flera batterier visas det svagaste.",
+        "The battery's state of health in percent: how much of its original capacity is left. With "
+        "several batteries, the weakest one shows.",
+    ),
+    "battery_health.manufacturer": (
+        "Batteriets tillverkare, som Ferroamp har registrerat den.",
+        "The battery's manufacturer, as Ferroamp has registered it.",
+    ),
+    "battery_health.battery_voltage_v": (
+        "Batteriets spänning i V, mätt av batterisystemet.",
+        "The battery's voltage in V, measured by the battery system.",
+    ),
+    "battery_health.battery_current_a": (
+        "Batteriets ström i A, mätt av batterisystemet. Tecknet följer batteriets egen mätning.",
+        "The battery's current in A, measured by the battery system. The sign follows the battery's "
+        "own measurement.",
+    ),
+    "battery_health.cell_voltage_min_v": (
+        "Den lägsta spänningen bland batteriets celler, i V. En stor skillnad mot den högsta kan "
+        "tyda på att cellerna behöver balanseras.",
+        "The lowest voltage among the battery's cells, in V. A large gap to the highest can mean "
+        "the cells need balancing.",
+    ),
+    "battery_health.cell_voltage_max_v": (
+        "Den högsta spänningen bland batteriets celler, i V.",
+        "The highest voltage among the battery's cells, in V.",
+    ),
+    "battery_cell_temperature_min": (
+        "Den lägsta temperaturen bland batteriets celler, i °C. Ett kallt batteri tar emot och "
+        "ger mindre effekt.",
+        "The lowest temperature among the battery's cells, in °C. A cold battery takes and gives "
+        "less power.",
+    ),
+    "battery_cell_temperature_max": (
+        "Den högsta temperaturen bland batteriets celler, i °C. Blir den för hög stämplar batteriet "
+        "ner effekten.",
+        "The highest temperature among the battery's cells, in °C. If it gets too high, the battery "
+        "derates its power.",
+    ),
+    # ---------------------------------------------------------------- strings
+    "solar_strings": (
+        "Hur många av solcellsoptimerarna (SSO), en per sträng, som är i drift just nu. På natten "
+        "går de ner, så färre i drift då är normalt.",
+        "How many of the solar string optimisers (SSO), one per string, are running right now. They "
+        "go down at night, so fewer running then is normal.",
+    ),
+    "solar_strings.strings": (
+        "Varje sträng med sitt namn i appen, sitt tillstånd och sin märkeffekt.",
+        "Every string with its name in the app, its state and its rated power.",
     ),
     # ----------------------------------------------------------------- system
     "online": (

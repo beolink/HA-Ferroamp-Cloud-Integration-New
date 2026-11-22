@@ -12,4 +12,6 @@ venv/
 probe.json
 schema.json
 monitor.jsonl
+system.json
 .ruff_cache/
+cloudapi.json

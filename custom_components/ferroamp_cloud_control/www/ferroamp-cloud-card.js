@@ -72,10 +72,46 @@
    *  holds for it (a state, or an attribute), `unit` its unit, `words` the card's
    *  own words, `lang` the language to format numbers in, `formatTime` a function
    *  that writes a date as the user reads dates. */
-  function formatValue(item, raw, unit, words, lang, formatTime) {
+  /** Ferroamp's own code ("BAT_SOC_POWER_DERATING") as words: "bat soc power derating". */
+  function plainCode(code) {
+    return String(code).toLowerCase().replace(/_/g, " ");
+  }
+
+  function formatValue(item, raw, unit, words, lang, formatTime, attrs) {
     const w = words || {};
     const fmt = item.format;
+    const states = item.states || {};
     if (fmt === "rrule") return [describeRule(raw, w), null];
+    if (fmt === "codes") {
+      const codes = Array.isArray(raw) ? raw : [];
+      return [codes.length ? codes.map((c) => states[c] || plainCode(c)).join(", ") : (w.none || "none"), null];
+    }
+    if (fmt === "alarms") {
+      const alarms = Array.isArray(raw) ? raw : [];
+      if (!alarms.length) return [w.no_alarms || "none", null];
+      return [alarms.map((a) => {
+        const when = a.since ? formatTime(new Date(a.since)) : null;
+        const what = states[a.code] || plainCode(a.code);
+        const head = [what, a.product_id ? `(${a.product_id})` : null].filter(Boolean).join(" ");
+        return when ? `${head}, ${when}` : head;
+      }).join("\n"), null];
+    }
+    if (fmt === "strings") {
+      const strings = Array.isArray(raw) ? raw : [];
+      if (!strings.length) return [w.none || "none", null];
+      return [strings.map((s) => {
+        const state = states[s.state] || (s.state ? plainCode(s.state) : (w.none || "none"));
+        const rating = s.rating_w ? `${number(s.rating_w, lang, 0)} W` : null;
+        return [`${s.name}: ${state}`, rating].filter(Boolean).join(", ");
+      }).join("\n"), null];
+    }
+    if (fmt === "of_total") {
+      const total = attrs ? attrs.total : undefined;
+      if (raw === undefined || raw === null || raw === "unknown" || raw === "unavailable") {
+        return [raw === "unavailable" ? (w.unavailable || "unavailable") : (w.none || "none"), null];
+      }
+      return [total === undefined || total === null ? String(raw) : `${raw} ${w.of || "of"} ${total}`, null];
+    }
     if (raw === undefined || raw === null || raw === "" || raw === "unknown") return [w.none || "none", null];
     if (raw === "unavailable") return [w.unavailable || String(raw), null];
     if (item.states && Object.prototype.hasOwnProperty.call(item.states, String(raw))) {
@@ -98,12 +134,12 @@
       if (fmt === "power_grid") return [size, value > 0 ? w.buying : w.selling];
       return [size, value > 0 ? w.discharging : w.charging];
     }
-    const digits = unit === "W" || unit === "%" ? 0 : 2;
+    const digits = fmt === "volts" ? 3 : unit === "W" || unit === "%" ? 0 : unit === "V" || unit === "A" ? 1 : 2;
     return [withUnit(number(value, lang, digits), unit), null];
   }
 
   if (typeof window === "undefined") {
-    if (typeof module !== "undefined") module.exports = { formatValue, describeRule };
+    if (typeof module !== "undefined") module.exports = { formatValue, describeRule, plainCode };
     return;
   }
 
@@ -137,7 +173,7 @@
       padding: 7px 0; border-bottom: 1px solid var(--divider-color, rgba(127,127,127,.2)); cursor: pointer;
     }
     .row:last-of-type { border-bottom: none; }
-    .row .value { text-align: right; font-weight: 500; }
+    .row .value { text-align: right; font-weight: 500; white-space: pre-line; }
     .row .value .word { color: var(--secondary-text-color); font-weight: 400; margin-left: 6px; }
   `;
 
@@ -254,7 +290,7 @@
           && !HIDDEN.has(state.state)) {
         return [this._hass.formatEntityState(state), null];
       }
-      return formatValue(item, raw, unit, this._config.words, lang, formatTime);
+      return formatValue(item, raw, unit, this._config.words, lang, formatTime, state.attributes);
     }
 
     _update() {

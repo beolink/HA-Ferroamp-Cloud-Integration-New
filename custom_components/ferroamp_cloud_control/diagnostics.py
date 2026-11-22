@@ -24,4 +24,8 @@ async def async_get_config_entry_diagnostics(
         "live": dataclasses.asdict(data.live) if data else None,
         "slow": dataclasses.asdict(data.slow) if data and data.slow else None,
         "control": entry.runtime_data.control.as_dict(),
+        # The system information as the cloud answered it, part by part, and
+        # the grid per phase as read (system.py).
+        "system_raw": data.system.raw if data and data.system else None,
+        "grid": dataclasses.asdict(data.grid) if data and data.grid else None,
     }

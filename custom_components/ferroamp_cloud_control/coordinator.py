@@ -1,5 +1,10 @@
 """Polling: the live part every scan interval, the slow part every ten minutes,
-and the battery control written on top of them (control.py)."""
+and the battery control written on top of them (control.py).
+
+The system information (system.py) rides along: its parts with the slow part,
+the grid per phase with every poll. Each is read on its own and a failure of
+one only leaves its values as they were; none of it is what EMS steers by.
+"""
 
 from __future__ import annotations
 
@@ -15,7 +20,7 @@ from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
-from . import protocol
+from . import protocol, system
 from .api import AuthError, CloudError, FerroampCloud
 from .const import (
     CONF_FACILITY_ID,
@@ -35,6 +40,8 @@ class CloudData:
     live: protocol.Live
     slow: protocol.Slow | None
     slow_at: float | None   # monotonic time of the last good slow read
+    system: system.SystemInfo | None = None
+    grid: system.Grid | None = None
 
 
 class FerroampCloudCoordinator(DataUpdateCoordinator[CloudData]):
@@ -51,6 +58,10 @@ class FerroampCloudCoordinator(DataUpdateCoordinator[CloudData]):
         self.client = client
         self.facility_id = int(entry.data[CONF_FACILITY_ID])
         self.control = Controller(client, self.facility_id)
+        # A grid read that failed is not tried again for SLOW_INTERVAL_S, so a
+        # part the cloud does not have costs one request per ten minutes, not
+        # one per poll.
+        self._grid_retry_at = 0.0
 
     @callback
     def store_refresh_token(self, token: str) -> None:
@@ -127,6 +138,10 @@ class FerroampCloudCoordinator(DataUpdateCoordinator[CloudData]):
                     # The live part is what EMS needs; the slow part waits
                     # for the next poll and keeps what it had.
                     _LOGGER.debug("Slow read failed, keeping the previous one: %s", err)
+            info = previous.system if previous else None
+            if slow_read or (info is None and slow is not None):
+                info = await self._read_system(info)
+            grid = await self._read_grid(previous.grid if previous else None)
             # The owner's configuration is kept while no command stands, and a
             # standing command is renewed here, on the driver's own timer.
             now = dt_util.utcnow()
@@ -141,4 +156,32 @@ class FerroampCloudCoordinator(DataUpdateCoordinator[CloudData]):
             raise ConfigEntryAuthFailed(str(err)) from err
         except CloudError as err:
             raise UpdateFailed(str(err)) from err
-        return CloudData(live=live, slow=slow, slow_at=slow_at)
+        return CloudData(live=live, slow=slow, slow_at=slow_at, system=info, grid=grid)
+
+    async def _read_system(self, previous: system.SystemInfo | None) -> system.SystemInfo:
+        """Every part of the system information, each on its own. A part that
+        fails keeps what the previous read had for it, and its error is kept
+        for the diagnostics download."""
+        answers: dict = dict(previous.raw) if previous else {}
+        errors: dict[str, str] = {}
+        now = self._now_local()
+        for name, document in system.PARTS.items():
+            try:
+                answers[name] = await self.client.query(
+                    document, system.part_variables(name, self.facility_id, now))
+            except CloudError as err:
+                _LOGGER.debug("System part %s not read: %s", name, err)
+                errors[name] = str(err)
+        answers["errors"] = errors
+        return system.parse_system(answers)
+
+    async def _read_grid(self, previous: system.Grid | None) -> system.Grid | None:
+        if time.monotonic() < self._grid_retry_at:
+            return previous
+        try:
+            grid = system.parse_grid(await self.client.query(system.GRID, {"id": self.facility_id}))
+        except CloudError as err:
+            _LOGGER.debug("Grid per phase not read: %s", err)
+            self._grid_retry_at = time.monotonic() + SLOW_INTERVAL_S
+            return previous
+        return grid if grid is not None else previous

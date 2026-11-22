@@ -1,4 +1,5 @@
-"""Whether the facility is online, whether FerroAI steers it."""
+"""Whether the facility is online, whether FerroAI steers it (with its
+settings), whether phase balancing is working (with its correction per phase)."""
 
 from __future__ import annotations
 
@@ -19,7 +20,8 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: FerroampCloudConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     coordinator = entry.runtime_data
-    async_add_entities([OnlineSensor(coordinator), FerroAiSensor(coordinator), FollowingSensor(coordinator)])
+    async_add_entities([OnlineSensor(coordinator), FerroAiSensor(coordinator), FollowingSensor(coordinator),
+                        PhaseBalancingActiveSensor(coordinator)])
 
 
 class OnlineSensor(FerroampCloudEntity, BinarySensorEntity):
@@ -55,6 +57,22 @@ class FerroAiSensor(FerroampCloudEntity, BinarySensorEntity):
     def is_on(self) -> bool | None:
         return self.coordinator.data.live.ferroai_enabled
 
+    @property
+    def extra_state_attributes(self) -> dict | None:
+        info = self.coordinator.data.system
+        opt = info.optimization if info else None
+        if opt is None:
+            return None
+        return {
+            "variant": opt.variant.lower() if opt.variant else None,
+            "activated_at": opt.activated_at.isoformat() if opt.activated_at else None,
+            "tariff_option": opt.tariff_option.lower() if opt.tariff_option else None,
+            "minimum_earnings": opt.minimum_earnings,
+            "limit_import_threshold": opt.limit_import_threshold,
+            "limit_export_threshold": opt.limit_export_threshold,
+            "bidding_zone": opt.bidding_zone,
+        }
+
 
 class FollowingSensor(FerroampCloudEntity, BinarySensorEntity):
     """EMS's verdict on the command: on while the cloud took the latest write,
@@ -72,3 +90,33 @@ class FollowingSensor(FerroampCloudEntity, BinarySensorEntity):
     def extra_state_attributes(self) -> dict:
         control = self.coordinator.control
         return {"last_nak": control.reason if control.result == "nak" else None}
+
+
+class PhaseBalancingActiveSensor(FerroampCloudEntity, BinarySensorEntity):
+    """On while phase balancing (ACE) is correcting the phases right now, read
+    with the grid per phase (system.py)."""
+
+    def __init__(self, coordinator: FerroampCloudCoordinator) -> None:
+        super().__init__(coordinator, "binary_sensor", "phase_balancing_active")
+
+    @property
+    def is_on(self) -> bool | None:
+        grid = self.coordinator.data.grid
+        return grid.ace_active if grid else None
+
+    @property
+    def extra_state_attributes(self) -> dict | None:
+        grid = self.coordinator.data.grid
+        if grid is None:
+            return None
+        return {
+            "ace_correction_l1": grid.ace_correction_a[0],
+            "ace_correction_l2": grid.ace_correction_a[1],
+            "ace_correction_l3": grid.ace_correction_a[2],
+            "ace_before_l1": grid.ace_before_a[0],
+            "ace_before_l2": grid.ace_before_a[1],
+            "ace_before_l3": grid.ace_before_a[2],
+            "ace_result_l1": grid.ace_result_a[0],
+            "ace_result_l2": grid.ace_result_a[1],
+            "ace_result_l3": grid.ace_result_a[2],
+        }

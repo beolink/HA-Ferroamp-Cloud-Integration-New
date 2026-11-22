@@ -25,6 +25,8 @@ def entity_keys() -> set[str]:
         keys.update(re.findall(r'super\(\).__init__\(coordinator, "\w+", "(\w+)"\)', text))
         keys.update(re.findall(r'\bkey="(\w+)"', text))
         keys.update(re.findall(r'_(?:power|kwh)\("(\w+)"', text))
+        for prefix in re.findall(r'_phase\("(\w+)"', text):
+            keys.update(f"{prefix}_l{n}" for n in (1, 2, 3))
     return keys
 
 
@@ -32,7 +34,7 @@ def facility(**overrides):
     keys = entity_keys()
     domains = {"control_enabled": "switch", "mode": "select", "battery_power_setpoint": "number",
                "grid_power_limit": "number", "online": "binary_sensor", "ferroai": "binary_sensor",
-               "following": "binary_sensor"}
+               "following": "binary_sensor", "phase_balancing_active": "binary_sensor"}
     fac = {
         "name": "Hus",
         "entities": {key: f"{domains.get(key, 'sensor')}.ferroamp_{key}" for key in keys},
@@ -100,8 +102,10 @@ def test_the_page_follows_the_language():
 
 def test_attribute_rows_name_the_attributes_the_entities_carry():
     protocol = (PKG / "protocol.py").read_text()
-    sensor = (PKG / "sensor.py").read_text()
-    carried = set(re.findall(r'"(\w+)": self\.', protocol)) | set(re.findall(r'"(\w+)": control\.', sensor))
+    sensor = (PKG / "sensor.py").read_text() + (PKG / "binary_sensor.py").read_text()
+    # protocol.py's attributes, and every attribute sensor.py writes itself.
+    carried = set(re.findall(r'"(\w+)": self\.', protocol)) | set(re.findall(r'^\s*"(\w+)": ', sensor, re.M)) \
+        | set(re.findall(r'\{"(\w+)": ', sensor))
     config = views.build_dashboard([facility()], t.ENGLISH)
     for item in items(config):
         if "attribute" in item:
@@ -147,7 +151,7 @@ WORDS = {"yes": "Ja", "no": "Nej", "no_limit": "ingen gräns", "buying": "köper
          "charging": "laddar", "discharging": "laddar ur", "still": "står still",
          "none": "ingen uppgift", "unavailable": "otillgänglig", "once": "en gång",
          "every_day": "varje dag", "every_week": "varje vecka", "every_year": "varje år",
-         "day_mo": "mån", "day_we": "ons", "day_fr": "fre"}
+         "day_mo": "mån", "day_we": "ons", "day_fr": "fre", "of": "av", "no_alarms": "inga larm"}
 
 
 def card_format(cases):
@@ -158,8 +162,8 @@ def card_format(cases):
       const {{ formatValue }} = require({json.dumps(str(CARD))});
       const cases = {json.dumps(cases)};
       const words = {json.dumps(WORDS)};
-      const out = cases.map(([item, raw, unit]) =>
-        formatValue(item, raw, unit, words, "sv", (d) => "TIME " + d.toISOString()));
+      const out = cases.map(([item, raw, unit, attrs]) =>
+        formatValue(item, raw, unit, words, "sv", (d) => "TIME " + d.toISOString(), attrs));
       console.log(JSON.stringify(out));
     """
     run = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
@@ -209,3 +213,39 @@ def test_the_card_writes_a_repeat_rule_in_words():
     ])
     assert [o[0] for o in out] == ["en gång", "varje dag", "varje vecka: mån, ons, fre", "varje år",
                                    "RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=MO"]
+
+
+def test_the_card_writes_lists_one_per_line():
+    # Strings carry lowercase states (sensor.py), alarms Ferroamp's own codes.
+    states = {"running": "i drift", "offline": "frånkopplad", "SSO_OFFLINE": "en solcellsoptimerare är frånkopplad"}
+    out = card_format([
+        [{"format": "codes"}, ["bat_soc_power_derating", "x_y"], None],
+        [{"format": "codes"}, [], None],
+        [{"format": "alarms", "states": states}, [], None],
+        [{"format": "alarms", "states": states},
+         [{"code": "SSO_OFFLINE", "product_id": "SSO2", "since": "2026-11-22T10:00:00+00:00"},
+          {"code": "NEW_CODE", "product_id": None, "since": None}], None],
+        [{"format": "strings", "states": states},
+         [{"name": "Söder", "state": "running", "rating_w": 4500},
+          {"name": "SSO 2", "state": "offline", "rating_w": None}], None],
+        [{"format": "of_total"}, "1", None, {"total": 2}],
+        [{"format": "of_total"}, "1", None, {}],
+        [{"format": "of_total"}, "unavailable", None, {"total": 2}],
+        [{"format": "volts"}, 3.312, "V"],
+    ])
+    texts = [o[0].replace("\u202f", " ").replace("\u00a0", " ") for o in out]
+    assert texts[0] == "bat soc power derating, x y"
+    assert texts[1] == "ingen uppgift"
+    assert texts[2] == "inga larm"
+    assert texts[3].split("\n") == ["en solcellsoptimerare är frånkopplad (SSO2), TIME 2026-11-22T10:00:00.000Z",
+                                     "new code"]
+    assert texts[4].split("\n") == ["Söder: i drift, 4 500 W", "SSO 2: frånkopplad"]
+    assert texts[5:8] == ["1 av 2", "1", "otillgänglig"]
+    assert texts[8] == "3,312 V"
+
+
+def test_the_card_writes_codes_in_words_where_it_has_them():
+    out = card_format([
+        [{"format": "codes", "states": {"remote_api": "Remote API"}}, ["remote_api", "new_service"], None],
+    ])
+    assert out[0][0] == "Remote API, new service"
