@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.0 (2026-11-22)
+
+A page of its own in the sidebar, Ferroamp, in the manner of CTC Local Easyconf's:
+
+- Three tabs: Overview (power right now, the last day's power, today's energy),
+  Control (the control entities, the configuration the system runs now, the active
+  schedule and FerroAI) and System (connection and the battery).
+- A blue "i" after every value and option writes out what it is, where it comes
+  from and how often it is read, with a way into Home Assistant's own dialog for the
+  entity. Swedish on a Swedish Home Assistant, English otherwise.
+- Built afresh each time it is opened, from the integration's current entities;
+  nothing is stored and the page writes nothing: a control is changed in Home
+  Assistant's own dialog.
+
 ## 0.3.1 (2026-10-28)
 
 All of the battery control from 0.2.0 and 0.3.0, tested on a live ESO 15

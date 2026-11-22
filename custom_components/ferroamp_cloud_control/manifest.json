@@ -5,10 +5,15 @@
     "@beolink"
   ],
   "config_flow": true,
+  "dependencies": [
+    "frontend",
+    "http",
+    "lovelace"
+  ],
   "documentation": "https://github.com/beolink/HA-Ferroamp-Cloud-Integration-New",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/beolink/HA-Ferroamp-Cloud-Integration-New/issues",
   "requirements": [],
-  "version": "0.3.1"
+  "version": "0.4.0"
 }

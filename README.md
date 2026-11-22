@@ -24,6 +24,15 @@ same cloud API as the app.
   whether FerroAI is on, whether the system is online and when it was last
   heard from.
 
+### The Ferroamp page
+
+The integration adds a page to the sidebar, **Ferroamp**, with three tabs:
+Overview, Control and System. Every value and option on it has a blue "i" that
+writes out what it is, where it comes from and how often it is read, and a way
+into Home Assistant's own dialog for the entity, where a control is changed. The
+page is built afresh each time it is opened, in Swedish on a Swedish Home
+Assistant and in English otherwise, and stores nothing.
+
 ### Control
 
 On OS 7 and later the app does not command the battery directly; it lays out

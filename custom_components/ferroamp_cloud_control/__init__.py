@@ -10,17 +10,22 @@ entity names as ha-ferroamp-control and the Ferroamp MQTT integration
 It also takes the EMS inverter contract's setpoint (``number.{prefix}_battery_power_setpoint``)
 and writes it as configuration schedules (control.py). Control is off until the owner
 switches ``switch.{prefix}_control_enabled`` on.
+
+A page in the sidebar, Ferroamp (page.py), shows all of it with an explanation for
+every value and option.
 """
 
 from __future__ import annotations
 
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.loader import async_get_integration
 
+from . import page
 from .api import FerroampCloud
-from .const import CONF_REFRESH_TOKEN
+from .const import CONF_REFRESH_TOKEN, DOMAIN
 from .coordinator import FerroampCloudCoordinator
 
 PLATFORMS: list[Platform] = [
@@ -57,8 +62,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: FerroampCloudConfigEntry
             await hass.config_entries.async_reload(entry.entry_id)
 
     entry.async_on_unload(entry.add_update_listener(_options_changed))
+
+    integration = await async_get_integration(hass, DOMAIN)
+    await page.async_register(hass, str(integration.version))
+    page.async_announce_change(hass)
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: FerroampCloudConfigEntry) -> bool:
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unloaded:
+        others = [e for e in hass.config_entries.async_entries(DOMAIN)
+                  if e.entry_id != entry.entry_id and e.state is ConfigEntryState.LOADED]
+        if others:
+            page.async_announce_change(hass)
+        else:
+            page.async_unregister(hass)
+    return unloaded
