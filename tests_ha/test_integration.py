@@ -274,6 +274,16 @@ async def test_without_grid_data_the_phase_balance_stream_gives_the_phases(hass:
     assert hass.states.get("binary_sensor.ferroamp_phase_balancing_active").state == "on"
 
 
+async def test_a_system_answer_the_driver_cannot_read_leaves_the_live_values(hass: HomeAssistant):
+    with patch.object(system, "parse_system", side_effect=AttributeError("surprise")):
+        entry = entry_for(hass)
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+    assert entry.state is config_entries.ConfigEntryState.LOADED
+    assert hass.states.get("sensor.ferroamp_battery_power").state == "3570.0"
+    assert hass.states.get("sensor.ferroamp_system_state").state == "unknown"
+
+
 async def test_stale_power_goes_unavailable(hass: HomeAssistant, freezer):
     entry = entry_for(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)

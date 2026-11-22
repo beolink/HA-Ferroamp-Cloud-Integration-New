@@ -177,14 +177,18 @@ class FerroampCloudCoordinator(DataUpdateCoordinator[CloudData]):
                 _LOGGER.debug("System part %s not read: %s", name, err)
                 errors[name] = str(err)
         answers["errors"] = errors
-        return system.parse_system(answers)
+        try:
+            return system.parse_system(answers)
+        except Exception:  # noqa: BLE001 - the system information must never stop the live read
+            _LOGGER.exception("The system information could not be read; the live values go on")
+            return previous
 
     async def _read_grid(self, previous: system.Grid | None) -> system.Grid | None:
         if time.monotonic() < self._grid_retry_at:
             return previous
         try:
             grid = system.parse_grid(await self.client.query(system.GRID, {"id": self.facility_id}))
-        except CloudError as err:
+        except (CloudError, AttributeError, TypeError, ValueError) as err:
             _LOGGER.debug("Grid per phase not read: %s", err)
             self._grid_retry_at = time.monotonic() + SLOW_INTERVAL_S
             return previous
@@ -207,4 +211,8 @@ class FerroampCloudCoordinator(DataUpdateCoordinator[CloudData]):
         if event is None:
             self._stream_retry_at = time.monotonic() + SLOW_INTERVAL_S
             return grid
-        return system.with_phase_balance(grid, event, dt_util.utcnow())
+        try:
+            return system.with_phase_balance(grid, event, dt_util.utcnow())
+        except (AttributeError, TypeError, ValueError) as err:
+            _LOGGER.debug("Phase balancing event not understood: %s", err)
+            return grid

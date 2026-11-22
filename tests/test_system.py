@@ -203,3 +203,19 @@ def test_the_phase_balance_stream_fills_in_the_grid():
     assert system.with_phase_balance(None, event, received).measured_at == received
     # An empty event changes nothing.
     assert system.with_phase_balance(empty_grid, {"newPhaseBalanceData": None}, received) is empty_grid
+
+
+def test_null_entries_in_the_lists_are_skipped():
+    # As on a system with a string the cloud lists as null (2026-11-22).
+    found = answers()
+    found["strings"]["facility"]["ssos"].insert(1, None)
+    found["batteries"]["facility"]["batteries"].append(None)
+    found["alarms"]["facility"]["alarm"]["entries"].append(None)
+    found["topology"]["facility"]["topology"]["inverters"].append(None)
+    found["prices"]["facility"]["spotPrices"]["entries"].append(None)
+    found["forecast"]["facility"]["measurements"]["predictions"].append(None)
+    found["controller"]["facility"]["singleBoardComputer"]["versionChangeLog"].append(None)
+    info = system.parse_system(found)
+    assert [s.name for s in info.strings] == ["Söder", "SSO 2"]
+    assert len(info.batteries) == 1 and len(info.alarms) == 1 and len(info.prices.periods) == 2
+    assert len(info.forecast) == 2 and info.software.last_update_to == "8.0.1"

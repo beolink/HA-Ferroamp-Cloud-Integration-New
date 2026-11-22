@@ -73,6 +73,18 @@ power series per phase adds up, and the battery's rated capacity unit.
   the spot price comes per quarter hour. FerroAI's forecast is empty while
   FerroAI is off.
 
+0.5.0-beta.3, after beta.2 on a system with an older OS:
+
+- That system's list of solar strings had a null in it, and reading it
+  stopped the whole poll, the live values too, so the integration did not
+  start. Null entries are skipped in every list now, and the system
+  information can no longer stop the live values: a part the driver cannot
+  read keeps what it had and goes into the log.
+- The diagnostics download works while the integration is not set up.
+- Seen on the ESO 15 system: the account may not read the control computer
+  or the life cycle ("Insufficient scopes"); the system's state and the
+  basics it may.
+
 ## 0.4.1 (2026-11-22)
 
 - A command's manual schedule keeps the owner's phase balancing limit. It kept

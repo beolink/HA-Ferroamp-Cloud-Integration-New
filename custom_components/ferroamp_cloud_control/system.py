@@ -168,6 +168,12 @@ def _facility(answer: Mapping[str, Any] | None) -> dict[str, Any]:
     return dict(((answer or {}).get("facility")) or {})
 
 
+def _items(value: Any) -> list[dict[str, Any]]:
+    """The entries of a list the cloud answered, without the null ones: a
+    system's list of strings has been seen with a null in it."""
+    return [x for x in value if isinstance(x, dict)] if isinstance(value, list) else []
+
+
 def _round(value: Any, digits: int) -> float | None:
     """Ferroamp sends floats as 6.400001525878906; the values are tenths."""
     number = _float(value)
@@ -339,7 +345,7 @@ def parse_system(answers: Mapping[str, Mapping[str, Any] | None]) -> SystemInfo:
     info: dict[str, Any] = {"raw": {k: v for k, v in answers.items() if v is not None}}
 
     if basics or sbc:
-        changes = sorted(sbc.get("versionChangeLog") or [], key=lambda c: c.get("updatedAt") or "")
+        changes = sorted(_items(sbc.get("versionChangeLog")), key=lambda c: c.get("updatedAt") or "")
         last = changes[-1] if changes else {}
         info["software"] = Software(
             version=(basics.get("info") or {}).get("version"),
@@ -365,14 +371,14 @@ def parse_system(answers: Mapping[str, Mapping[str, Any] | None]) -> SystemInfo:
         info["phases"] = system.get("phases")
         info["inverter_ratings_w"] = tuple(
             r for r in (_float((i.get("attributes") or {}).get("powerRating"))
-                        for i in topology.get("inverters") or []) if r is not None)
+                        for i in _items(topology.get("inverters"))) if r is not None)
         info["eso_generations"] = tuple(sorted({
-            eso.get("generation") for b in topology.get("batteries") or []
-            for eso in b.get("esos") or [] if eso.get("generation")}))
+            eso.get("generation") for b in _items(topology.get("batteries"))
+            for eso in _items(b.get("esos")) if eso.get("generation")}))
 
     alarms = answers.get("alarms")
     if alarms is not None:
-        entries = (_facility(alarms).get("alarm") or {}).get("entries") or []
+        entries = _items((_facility(alarms).get("alarm") or {}).get("entries"))
         info["alarms"] = tuple(
             Alarm(code=str(e.get("code")), product_id=e.get("productId"), since=parse_time(e.get("activatedAt")))
             for e in entries if e.get("status") == "ACTIVE")
@@ -380,7 +386,7 @@ def parse_system(answers: Mapping[str, Mapping[str, Any] | None]) -> SystemInfo:
     batteries = answers.get("batteries")
     if batteries is not None:
         found = []
-        for b in _facility(batteries).get("batteries") or []:
+        for b in _items(_facility(batteries).get("batteries")):
             attrs = b.get("attributes") or {}
             state = ((b.get("state") or {}).get("current")) or {}
             log = ((b.get("log") or {}).get("current")) or {}
@@ -409,7 +415,7 @@ def parse_system(answers: Mapping[str, Mapping[str, Any] | None]) -> SystemInfo:
     strings = answers.get("strings")
     if strings is not None:
         found_strings = []
-        for number, s in enumerate(_facility(strings).get("ssos") or [], start=1):
+        for number, s in enumerate(_items(_facility(strings).get("ssos")), start=1):
             active = ((s.get("state") or {}).get("active")) or {}
             found_strings.append(SolarString(
                 name=s.get("displayName") or f"SSO {number}",
@@ -444,8 +450,8 @@ def parse_system(answers: Mapping[str, Mapping[str, Any] | None]) -> SystemInfo:
     if prices is not None:
         fac = _facility(prices)
         spot = fac.get("spotPrices") or {}
-        current = spot.get("current")
-        periods = sorted((_price_period(e) for e in spot.get("entries") or []),
+        current = spot.get("current") if isinstance(spot.get("current"), dict) else None
+        periods = sorted((_price_period(e) for e in _items(spot.get("entries"))),
                          key=lambda p: p.start or dt.datetime.min.replace(tzinfo=dt.UTC))
         if current or periods:
             info["prices"] = Prices(
@@ -460,7 +466,7 @@ def parse_system(answers: Mapping[str, Mapping[str, Any] | None]) -> SystemInfo:
         if rows is not None:
             points = [ForecastPoint(at=parse_time(r.get("timestamp")), soc=_float(r.get("stateOfCharge")),
                                     solar_w=_float(r.get("solarPower")),
-                                    consumption_w=_float(r.get("consumptionPower"))) for r in rows]
+                                    consumption_w=_float(r.get("consumptionPower"))) for r in _items(rows)]
             info["forecast"] = tuple(sorted(points, key=lambda p: p.at or dt.datetime.min.replace(tzinfo=dt.UTC)))
 
     return SystemInfo(**info)
