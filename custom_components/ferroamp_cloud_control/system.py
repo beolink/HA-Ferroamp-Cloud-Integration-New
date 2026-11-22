@@ -71,9 +71,11 @@ query SystemBatteries($id: Int!) { facility(where: {id: {equals: $id}}) {
       cellTemperatureMin cellTemperatureMax cellVoltageMin cellVoltageMax updatedAt } } }
 } }"""
 
+# Without `enabled`: on a system with an older OS the cloud answered it with
+# "Unexpected error" for every string, which made each string null.
 STRINGS: Final = """
 query SystemStrings($id: Int!) { facility(where: {id: {equals: $id}}) {
-  ssos { id displayName enabled generation attributes { powerRating }
+  ssos { id displayName generation attributes { powerRating }
     state { active { primary secondary updatedAt } } }
 } }"""
 

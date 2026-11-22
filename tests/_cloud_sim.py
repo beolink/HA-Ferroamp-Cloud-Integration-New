@@ -78,10 +78,10 @@ SYSTEM_ANSWERS: dict[str, dict[str, Any]] = {
                              "updatedAt": "2026-11-22T19:00:00.000Z"}}},
     ]}},
     "strings": {"facility": {"ssos": [
-        {"id": "SSO1", "displayName": "Söder", "enabled": True, "generation": "SSO8",
+        {"id": "SSO1", "displayName": "Söder", "generation": "SSO8",
          "attributes": {"powerRating": 4500}, "state": {"active": {
              "primary": "RUNNING", "secondary": [], "updatedAt": "2026-11-22T08:00:00.000Z"}}},
-        {"id": "SSO2", "displayName": None, "enabled": True, "generation": "SSO8",
+        {"id": "SSO2", "displayName": None, "generation": "SSO8",
          "attributes": {"powerRating": 4500}, "state": {"active": {
              "primary": "OFFLINE", "secondary": [], "updatedAt": "2026-11-22T10:00:00.000Z"}}},
     ]}},

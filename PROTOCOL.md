@@ -140,8 +140,10 @@ in the installer's views):
   `ratedCapacity` is in Wh (27 500 on a 27.5 kWh system, 2026-11-22). The
   cell temperatures and voltages matched the battery's own BMS, read locally
   at the same time.
-- `ssos { displayName enabled generation attributes { powerRating } state { active { primary secondary } } }`:
-  the solar string optimisers.
+- `ssos { displayName generation attributes { powerRating } state { active { primary secondary } } }`:
+  the solar string optimisers. `enabled` is left out: on a system with OS
+  6.1.3 the cloud answered it with "Unexpected error" for each string,
+  which made every string null.
 - `measurements { latestGridData { timestamp u1 u2 u3 iExtRms1 iExtRms2 iExtRms3 aceActive acePhase1..3 { beforeCorrection correction result } } }`:
   the grid per phase (V and A), whether phase balancing works right now and
   its correction per phase (the app's PhaseBalancingStream shows the same).
@@ -155,14 +157,21 @@ in the installer's views):
 - `measurements { latestPower { gridPower loadPower pExtD1..3 pExtQ1..3 pLoadD1..3 pLoadQ1..3 } }`:
   power per phase. There are two sets per phase; in the official Cloud API's
   example the `Q` set adds up to the total, so the driver takes `Q` unless
-  `D` is the set that adds up on the system. To be confirmed live.
+  `D` is the set that adds up on the system. On the OS 6.1.3 system the
+  chosen set added up to the total and the consumption per phase matched
+  the hub's MQTT within a few percent; on the ESO 15 system on OS 7 both
+  sets were null.
+- `iExtRms1..3` comes signed (negative while the phase sells), unlike the
+  ExtAPI's RMS current.
 - `optimization { activatedAt enabled limitExportThreshold limitImportThreshold minimumEarnings optimizationVariant tariffOptions }`,
   `location { energyBiddingZone }`, `uiComponents { activeServices }`:
   FerroAI's settings as the app's GetFacilityOptimizationOptions reads them,
   and the outside services that are active (`RemoteApi`, `AncillaryService`).
 - `spotPrices { current { price startTimestamp endTimestamp } entries(where: {day: {gte, lte}}) { ... } } misc { currencyCode }`:
-  the spot price, as the app's GetSpotPrice. The unit is taken to be the
-  currency per kWh; to be confirmed live.
+  the spot price, as the app's GetSpotPrice: Nord Pool's price for the
+  bidding zone in the currency per kWh, without VAT (1.167 against Nord
+  Pool's 1.16647 SEK/kWh in SE3, 2026-11-22), per quarter hour, today's and
+  tomorrow's.
 - `measurements { predictions(where: {timestamp: {gte, lt}}, unit: W) { timestamp stateOfCharge solarPower consumptionPower } }`:
   FerroAI's forecast, as the app's overview.
 - Not read: `settings { cloudApi { apiKey bindIp allowedRequests } }` (it

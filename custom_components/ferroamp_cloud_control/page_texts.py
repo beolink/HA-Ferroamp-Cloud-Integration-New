@@ -143,6 +143,7 @@ WORDS: Final[dict[str, dict[str, tuple[str, str]]]] = {
     "alarm_code": {
         "SYSTEM_OFFLINE": ("Systemet är nere", "The system is offline"),
         "SSO_OFFLINE": ("En solcellsoptimerare är nere", "A solar string optimiser is offline"),
+        "SYSTEM_IDLE": ("Systemet vilar", "The system is idle"),
         "ALL": ("Alla", "All"),
     },
     "working": {
@@ -594,12 +595,12 @@ EXPLAIN: Final[dict[str, tuple[str, str]]] = {
         "The bidding zone the system's spot price is fetched for, for instance SE3.",
     ),
     "spot_price": (
-        "Spotpriset för den här perioden, det pris anläggningen optimeras mot, i den valuta "
-        "appen visar per kWh. Attributen har dagens priser och morgondagens när de finns. "
-        "Läses var tionde minut.",
-        "The spot price for this period, the price the system is optimised against, in the "
-        "currency the app shows, per kWh. The attributes hold today's prices, and tomorrow's "
-        "once they are out. Read every ten minutes.",
+        "Spotpriset för den här kvarten, det pris anläggningen optimeras mot: Nord Pools pris "
+        "för elområdet, utan moms, skatt och avgifter, per kWh. Attributen har dagens priser och "
+        "morgondagens när de finns. Läses var tionde minut.",
+        "The spot price for this quarter hour, the price the system is optimised against: Nord "
+        "Pool's price for the bidding zone, without VAT, tax or fees, per kWh. The attributes "
+        "hold today's prices, and tomorrow's once they are out. Read every ten minutes.",
     ),
     "forecast_soc": (
         "Den laddnivå FerroAI räknar med för den här timmen, i %. Hela prognosen, timme för "
@@ -715,9 +716,11 @@ EXPLAIN: Final[dict[str, tuple[str, str]]] = {
     ),
     "grid_current_l1": (
         "Strömmen på fas L1 mot nätet, i A, som effektivvärde. Det är den som går genom "
-        "huvudsäkringen och som fasbalanseringen håller under sin gräns.",
+        "huvudsäkringen och som fasbalanseringen håller under sin gräns. Ferroamps moln ger "
+        "den med tecken: negativ när fasen säljer.",
         "The current on phase L1 towards the grid, in A (RMS). It is what passes the main fuse and "
-        "what phase balancing keeps below its limit.",
+        "what phase balancing keeps below its limit. Ferroamp's cloud signs it: negative while "
+        "the phase sells.",
     ),
     "grid_current_l2": (
         "Strömmen på fas L2 mot nätet, i A, som effektivvärde.",

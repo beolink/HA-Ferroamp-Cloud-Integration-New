@@ -85,6 +85,20 @@ power series per phase adds up, and the battery's rated capacity unit.
   or the life cycle ("Insufficient scopes"); the system's state and the
   basics it may.
 
+0.5.0-beta.4, after beta.3 on both systems:
+
+- The solar strings are read without `enabled`, which the cloud answered with
+  "Unexpected error" for every string on the system with an older OS, so
+  that no string came through.
+- The spot price is Nord Pool's price for the bidding zone without VAT
+  (1.167 against Nord Pool's 1.16647 SEK/kWh, 2026-11-22), and its
+  explanation says so. The current per phase comes signed from the cloud
+  (negative while the phase sells), and its explanation says that too.
+- The alarm code `SYSTEM_IDLE` has words of its own.
+- Seen on the system with an older OS (6.1.3) and a third-party battery: the
+  cloud's battery energy for the day is 0, not missing, while the hub's own
+  counters had 31 kWh charged; the driver shows what the cloud says.
+
 ## 0.4.1 (2026-11-22)
 
 - A command's manual schedule keeps the owner's phase balancing limit. It kept
