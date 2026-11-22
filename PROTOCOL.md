@@ -140,10 +140,14 @@ in the installer's views):
   `ratedCapacity` is in Wh (27 500 on a 27.5 kWh system, 2026-11-22). The
   cell temperatures and voltages matched the battery's own BMS, read locally
   at the same time.
-- `ssos { displayName generation attributes { powerRating } state { active { primary secondary } } }`:
-  the solar string optimisers. `enabled` is left out: on a system with OS
-  6.1.3 the cloud answered it with "Unexpected error" for each string,
-  which made every string null.
+- `topology { ssos { terminals { id displayName enabled terminalId } } }`:
+  the solar strings as the app lists them (GetFacilitySSOS), and
+  `ssos { id state { active { primary secondary } } }` for their state, a
+  part of its own. The product list `facility.ssos` failed field by field on
+  a system with OS 6.1.3 (`enabled`, then `generation`: "Unexpected error"
+  for each string, which made every string null), and the user app never
+  reads it; there a string's state comes from the alarms, an active
+  `SSO_OFFLINE` with its id as `productId`.
 - `measurements { latestGridData { timestamp u1 u2 u3 iExtRms1 iExtRms2 iExtRms3 aceActive acePhase1..3 { beforeCorrection correction result } } }`:
   the grid per phase (V and A), whether phase balancing works right now and
   its correction per phase (the app's PhaseBalancingStream shows the same).

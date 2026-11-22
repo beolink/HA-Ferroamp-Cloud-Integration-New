@@ -71,12 +71,19 @@ query SystemBatteries($id: Int!) { facility(where: {id: {equals: $id}}) {
       cellTemperatureMin cellTemperatureMax cellVoltageMin cellVoltageMax updatedAt } } }
 } }"""
 
-# Without `enabled`: on a system with an older OS the cloud answered it with
-# "Unexpected error" for every string, which made each string null.
+# The strings as the app lists them (its GetFacilitySSOS): the topology's
+# terminals. Their state is a part of its own, because the product list
+# (facility.ssos) failed field by field on a system with OS 6.1.3; where it
+# does not answer, a string counts as running unless an SSO_OFFLINE alarm
+# is active for it, which is how the app shows a string that is down.
 STRINGS: Final = """
 query SystemStrings($id: Int!) { facility(where: {id: {equals: $id}}) {
-  ssos { id displayName generation attributes { powerRating }
-    state { active { primary secondary updatedAt } } }
+  topology { ssos { terminals { id displayName enabled terminalId } } }
+} }"""
+
+STRING_STATES: Final = """
+query SystemStringStates($id: Int!) { facility(where: {id: {equals: $id}}) {
+  ssos { id state { active { primary secondary updatedAt } } }
 } }"""
 
 # FerroAI's settings as the app's own GetFacilityOptimizationOptions reads
@@ -142,6 +149,7 @@ PARTS: Final[dict[str, str]] = {
     "alarms": ALARMS,
     "batteries": BATTERIES,
     "strings": STRINGS,
+    "string_states": STRING_STATES,
     "optimization": OPTIMIZATION,
     "prices": PRICES,
     "forecast": FORECAST,
@@ -231,14 +239,13 @@ class Battery:
 class SolarString:
     name: str
     enabled: bool | None
-    generation: str | None
-    rating_w: float | None
     state: str | None
     reasons: tuple[str, ...] = ()
+    id: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
-        return {"name": self.name, "enabled": self.enabled, "generation": self.generation,
-                "rating_w": self.rating_w, "state": self.state, "reasons": list(self.reasons)}
+        return {"id": self.id, "name": self.name, "enabled": self.enabled, "state": self.state,
+                "reasons": list(self.reasons)}
 
 
 @dataclass(frozen=True)
@@ -416,15 +423,22 @@ def parse_system(answers: Mapping[str, Mapping[str, Any] | None]) -> SystemInfo:
 
     strings = answers.get("strings")
     if strings is not None:
+        topology_ssos = (_facility(strings).get("topology") or {}).get("ssos")
+        terminals = [t for group in (topology_ssos if isinstance(topology_ssos, list) else [topology_ssos])
+                     if isinstance(group, dict) for t in _items(group.get("terminals"))]
+        states = {str(x.get("id")): ((x.get("state") or {}).get("active") or {})
+                  for x in _items(_facility(answers.get("string_states")).get("ssos"))}
+        offline = {a.product_id for a in info.get("alarms") or () if a.code == "SSO_OFFLINE"}
         found_strings = []
-        for number, s in enumerate(_items(_facility(strings).get("ssos")), start=1):
-            active = ((s.get("state") or {}).get("active")) or {}
+        for number, t in enumerate(terminals, start=1):
+            sid = str(t.get("id")) if t.get("id") is not None else None
+            active = states.get(sid or "", {})
+            state = active.get("primary") or ("OFFLINE" if sid in offline else None)
             found_strings.append(SolarString(
-                name=s.get("displayName") or f"SSO {number}",
-                enabled=s.get("enabled"),
-                generation=s.get("generation"),
-                rating_w=_float((s.get("attributes") or {}).get("powerRating")),
-                state=active.get("primary"),
+                id=sid,
+                name=t.get("displayName") or f"SSO {number}",
+                enabled=t.get("enabled"),
+                state=state,
                 reasons=tuple(active.get("secondary") or ()),
             ))
         info["strings"] = tuple(found_strings)
@@ -589,10 +603,16 @@ def battery_state(info: SystemInfo) -> str | None:
 
 
 def strings_running(info: SystemInfo) -> int | None:
-    """How many solar strings are running; None for a system without any."""
+    """How many solar strings are running; None for a system without any.
+    With states from the cloud, those RUNNING; without them, those without an
+    active SSO_OFFLINE alarm, as long as the alarms were read."""
     if not info.strings:
         return None
-    return sum(1 for s in info.strings if s.state == "RUNNING")
+    if any(s.state not in (None, "OFFLINE") for s in info.strings):
+        return sum(1 for s in info.strings if s.state == "RUNNING")
+    if info.alarms is None:
+        return None
+    return sum(1 for s in info.strings if s.state != "OFFLINE")
 
 
 def forecast_now(info: SystemInfo, now: dt.datetime) -> ForecastPoint | None:

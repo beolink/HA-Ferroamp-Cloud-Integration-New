@@ -99,6 +99,13 @@ power series per phase adds up, and the battery's rated capacity unit.
   cloud's battery energy for the day is 0, not missing, while the hub's own
   counters had 31 kWh charged; the driver shows what the cloud says.
 
+0.5.0-beta.5, after beta.4: the product list of strings failed field by
+field on the system with OS 6.1.3 (`enabled`, then `generation`). The strings
+are now read the way the app lists them, from the topology, and their state
+as a part of its own; where that part does not answer, a string counts as
+running unless an SSO_OFFLINE alarm is active for it, as the app shows it.
+The strings no longer carry a generation or a rated power.
+
 ## 0.4.1 (2026-11-22)
 
 - A command's manual schedule keeps the owner's phase balancing limit. It kept

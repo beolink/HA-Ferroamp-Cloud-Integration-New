@@ -834,14 +834,16 @@ EXPLAIN: Final[dict[str, tuple[str, str]]] = {
     ),
     # ---------------------------------------------------------------- strings
     "solar_strings": (
-        "Hur många av solcellsoptimerarna (SSO), en per sträng, som är i drift just nu. På natten "
-        "går de ner, så färre i drift då är normalt.",
-        "How many of the solar string optimisers (SSO), one per string, are running right now. They "
-        "go down at night, so fewer running then is normal.",
+        "Hur många av solcellsoptimerarna (SSO), en per sträng, som är i drift just nu. Där "
+        "molnet inte ger strängarnas tillstånd räknas de som inte har ett aktivt larm om att "
+        "de är nere, så som appen visar dem.",
+        "How many of the solar string optimisers (SSO), one per string, are running right now. "
+        "Where the cloud gives no state for the strings, those without an active alarm saying "
+        "they are offline count, the way the app shows them.",
     ),
     "solar_strings.strings": (
-        "Varje sträng med sitt namn i appen, sitt tillstånd och sin märkeffekt.",
-        "Every string with its name in the app, its state and its rated power.",
+        "Varje sträng med sitt namn i appen och sitt tillstånd, när molnet ger det.",
+        "Every string with its name in the app and its state, when the cloud gives it.",
     ),
     # ----------------------------------------------------------------- system
     "online": (

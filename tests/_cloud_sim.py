@@ -77,13 +77,13 @@ SYSTEM_ANSWERS: dict[str, dict[str, Any]] = {
                              "cellVoltageMin": 3.31, "cellVoltageMax": 3.34,
                              "updatedAt": "2026-11-22T19:00:00.000Z"}}},
     ]}},
-    "strings": {"facility": {"ssos": [
-        {"id": "SSO1", "displayName": "Söder", "generation": "SSO8",
-         "attributes": {"powerRating": 4500}, "state": {"active": {
-             "primary": "RUNNING", "secondary": [], "updatedAt": "2026-11-22T08:00:00.000Z"}}},
-        {"id": "SSO2", "displayName": None, "generation": "SSO8",
-         "attributes": {"powerRating": 4500}, "state": {"active": {
-             "primary": "OFFLINE", "secondary": [], "updatedAt": "2026-11-22T10:00:00.000Z"}}},
+    "strings": {"facility": {"topology": {"ssos": [{"terminals": [
+        {"id": "SSO1", "displayName": "Söder", "enabled": True, "terminalId": "1:a"},
+        {"id": "SSO2", "displayName": None, "enabled": True, "terminalId": "1:b"},
+    ]}]}}},
+    "string_states": {"facility": {"ssos": [
+        {"id": "SSO1", "state": {"active": {"primary": "RUNNING", "secondary": [], "updatedAt": "2026-11-22T08:00:00.000Z"}}},
+        {"id": "SSO2", "state": {"active": {"primary": "OFFLINE", "secondary": [], "updatedAt": "2026-11-22T10:00:00.000Z"}}},
     ]}},
     "optimization": {"facility": {
         "optimization": {"activatedAt": "2026-05-01T10:00:00.000Z", "enabled": False,

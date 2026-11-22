@@ -183,8 +183,18 @@ def test_cell_values_are_rounded_to_what_they_are():
 
 
 def test_no_strings_is_unknown_not_none_running():
-    info = system.parse_system(answers(strings={"facility": {"ssos": []}}))
+    info = system.parse_system(answers(strings={"facility": {"topology": {"ssos": []}}}))
     assert info.strings == () and system.strings_running(info) is None
+
+
+def test_without_string_states_the_alarms_tell_which_string_is_down():
+    # As on a system with OS 6.1.3: the product list answered each string null.
+    info = system.parse_system(answers(string_states={"facility": {"ssos": [None, None]}}))
+    assert [s.state for s in info.strings] == [None, "OFFLINE"]   # SSO2 has an active SSO_OFFLINE alarm
+    assert system.strings_running(info) == 1
+    # Without the alarms either, it is not known.
+    info = system.parse_system(answers(string_states=None, alarms=None))
+    assert system.strings_running(info) is None
 
 
 def test_the_phase_balance_stream_fills_in_the_grid():
@@ -208,7 +218,8 @@ def test_the_phase_balance_stream_fills_in_the_grid():
 def test_null_entries_in_the_lists_are_skipped():
     # As on a system with a string the cloud lists as null (2026-11-22).
     found = answers()
-    found["strings"]["facility"]["ssos"].insert(1, None)
+    found["strings"]["facility"]["topology"]["ssos"][0]["terminals"].insert(1, None)
+    found["string_states"]["facility"]["ssos"].insert(0, None)
     found["batteries"]["facility"]["batteries"].append(None)
     found["alarms"]["facility"]["alarm"]["entries"].append(None)
     found["topology"]["facility"]["topology"]["inverters"].append(None)
