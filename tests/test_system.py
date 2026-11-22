@@ -6,7 +6,7 @@ import copy
 import datetime as dt
 
 from custom_components.ferroamp_cloud_control import system
-from tests._cloud_sim import GRID_ANSWER, SYSTEM_ANSWERS
+from _cloud_sim import GRID_ANSWER, SYSTEM_ANSWERS
 
 
 def answers(**changes):
